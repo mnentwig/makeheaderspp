@@ -111,9 +111,7 @@ class codeGen {
             const string CPP_return_type = Cidentifier + "[\\&\\*]*";
             const string CPP_methodName = oneOf({Cidentifier, "operator\\s*[^\\s\\(]+"});
 
-            return literal("/*") + wsOpt + literal("AH:") + wsOpt +
-                   capture(zeroOrMore_nonGreedy(any)) + wsOpt +
-                   literal("*/") + wsOpt +
+            return "MHPP" + wsOpt + literal("(") + wsOpt + capture(zeroOrMore_nonGreedy(any)) + "\"" + wsOpt + "\\)" + wsOpt +
 
                    zeroOrOne(capture("constexpr") + wsSep) +
 
@@ -145,18 +143,17 @@ class codeGen {
                    literal("{");
         }
 
-        static string getAHBEGIN_AHEND() {
+        static string getMHPP_beginEnd() {
             return
-                // indent of AHBEGIN
+                // indent of MHPP
                 capture(zeroOrMore_greedy("[ \t]"))
                 // keyword itself
-                + "AHBEGIN" +
-                // classname in brackets
-                literal("(") + wsOpt + capture(Cidentifier + zeroOrMore_greedy("::" + Cidentifier)) + wsOpt + literal(")") +
+                + "MHPP" + wsOpt +
+                literal("(") + wsOpt + literal("\"") + wsOpt + "begin" + wsSep + capture(Cidentifier + zeroOrMore_greedy("::" + Cidentifier)) + wsOpt + literal("\"") + wsOpt + literal(")") +
                 // old definitions (to be replaced)
                 zeroOrMore_nonGreedy(any) +
-                "AHEND" +
-                literal("(") + wsOpt + capture(Cidentifier + zeroOrMore_greedy("::" + Cidentifier)) + wsOpt + literal(")");
+                "MHPP" + wsOpt +
+                literal("(") + wsOpt + literal("\"") + wsOpt + "end" + wsSep + capture(Cidentifier + zeroOrMore_greedy("::" + Cidentifier)) + wsOpt + literal("\"") + wsOpt + literal(")");
         }
     };
 
@@ -184,7 +181,7 @@ class codeGen {
         assert(it != filebodyByFilename.end());
         string all = it->second;
         // === break into nonmatch|match|nonmatch|...|nonmatch stream ===
-        regex r = regex(myRegexGen::getAHBEGIN_AHEND());
+        regex r = regex(myRegexGen::getMHPP_beginEnd());
         vector<string> unmatched;
         vector<vector<string>> captures;
         regexGen::process(all, r, unmatched, captures);
@@ -224,7 +221,7 @@ class codeGen {
     void checkAllClassesDone() {
         for (auto it : classDone)
             if (!it.second)
-                throw runtime_error("no AHBEGIN(" + it.first + ") ... AHEND(" + it.first + ") anywhere in files");
+                throw runtime_error("no MHPP(\"begin " + it.first + "\") ... MHPP(\"end " + it.first + "\") anywhere in files");
     }
 
    protected:
@@ -283,7 +280,7 @@ class codeGen {
         string indent = captures[1];
         string classname = captures[2];
         string classnameEnd = captures[3];
-        if (classname != classnameEnd) throw runtime_error("AHBEGIN(" + classname + ") terminated by AHEND(" + classnameEnd + ")");
+        if (classname != classnameEnd) throw runtime_error("MHPP(\"begin " + classname + "\") terminated by MHPP(\"end " + classnameEnd + ")\"");
 
         auto it = classesByName.find(classname);
         if (it == classesByName.end()) throw runtime_error("no data for AHBEGIN(" + classname + ")");
@@ -301,14 +298,14 @@ class codeGen {
         const string protTxt = c.getProtectedText(indentp1);
         const string privTxt = c.getPrivateText(indentp1);
         string res;
-        res += indent + "AHBEGIN(" + classname + ")\n";
+        res += indent + "MHPP(\"begin " + classname + "\")\n";
         if (pubTxt.size() > 0)
             res += indent + "public:\n" + pubTxt;
         if (protTxt.size() > 0)
             res += indent + "protected:\n" + protTxt;
         if (privTxt.size() > 0)
             res += indent + "private:\n" + privTxt;
-        res += indent + "AHEND(" + classname + ")";  // no newline (pattern ends before it)
+        res += indent + "MHPP(\"end " + classname + "\")";  // no newline (pattern ends before it)
         return res;
     }
 
