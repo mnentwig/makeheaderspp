@@ -72,3 +72,4 @@ However, modifying files in-place is by nature somewhat risky.
 
 Use git, commit often.
 
+The C preprocessor is not invoked, therefore the MHPP(...) tag and the function definition need to be recognizable from the unprocessed source.
