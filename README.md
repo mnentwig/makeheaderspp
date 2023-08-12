@@ -3,7 +3,7 @@ Automatic header generation for C++ classes
 
 ### Motivation
 The tool auto-generates class method declarations in C++ headers from their implementation. 
-It generates only user-defined parts of a header, while the remaining lines are edited conventionally. 
+It modifies only user-defined parts of a header, while the remaining lines are edited conventionally. 
 
 ### Use model
 A single dummy macro
