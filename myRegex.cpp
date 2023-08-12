@@ -26,6 +26,9 @@ myRegex myRegex::operator+(const myRegex& arg) const {
     return r;
 }
 
+MHPP("public")
+const void* myRegex::test(){}
+
 MHPP("public static")
 myRegex myRegex::regex(const ::std::string& re, bool isGroup) {
     return myRegex(re, isGroup);
