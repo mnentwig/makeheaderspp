@@ -11,12 +11,14 @@ class myRegexBase {
     	myRegexBase operator|(const myRegexBase& arg) const;
     	static myRegexBase rx(const ::std::string& re, bool isGroup);
     	static myRegexBase zeroOrMore_greedy(const myRegexBase& arg);
-    	static myRegexBase zeroOrMore_nonGreedy(const myRegexBase& arg);
-    	myRegexBase capture(const ::std::string& captName);
+    	static myRegexBase zeroOrMore_lazy(const myRegexBase& arg);
+    	static myRegexBase zeroOrOne_greedy(const myRegexBase& arg);
+    	static myRegexBase zeroOrOne_lazy(const myRegexBase& arg);
+    	static myRegexBase capture(const myRegexBase& arg, const ::std::string& captName);
     protected:
     	myRegexBase(const ::std::string& expr, bool isGroup);
     	myRegexBase makeGrp() const;
-    	myRegexBase changeExpr(const string& newExpr, bool isGroup);
+    	myRegexBase changeExpr(const ::std::string& newExpr, bool isGroup) const;
     MHPP("end myRegexBase")
    protected:
    // expression in human-readable regex format

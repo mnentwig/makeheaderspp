@@ -53,14 +53,26 @@ myRegexBase myRegexBase::zeroOrMore_greedy(const myRegexBase& arg) {
 }
 
 MHPP("public static")
-myRegexBase myRegexBase::zeroOrMore_nonGreedy(const myRegexBase& arg) {
+myRegexBase myRegexBase::zeroOrMore_lazy(const myRegexBase& arg) {
     myRegexBase r = arg.makeGrp();
     return r.changeExpr(r.expr + "*?", /*isGroup*/ false);
 }
 
-MHPP("public")
-myRegexBase myRegexBase::capture(const ::std::string& captName) {
-    myRegexBase r = changeExpr("(" + expr + ")", true);
+MHPP("public static")
+myRegexBase myRegexBase::zeroOrOne_greedy(const myRegexBase& arg) {
+    myRegexBase r = arg.makeGrp();
+    return r.changeExpr(r.expr + "?", /*isGroup*/ false);
+}
+
+MHPP("public static")
+myRegexBase myRegexBase::zeroOrOne_lazy(const myRegexBase& arg) {
+    myRegexBase r = arg.makeGrp();
+    return r.changeExpr(r.expr + "??", /*isGroup*/ false);
+}
+
+MHPP("public static")
+myRegexBase myRegexBase::capture(const myRegexBase& arg, const ::std::string& captName) {
+    myRegexBase r = arg.changeExpr("(" + arg.expr + ")", true);
     r.captureNames.insert(r.captureNames.begin(), captName);
     return r;
 }
@@ -78,7 +90,8 @@ myRegexBase myRegexBase::makeGrp() const {
 }
 
 MHPP("protected")
-myRegexBase myRegexBase::changeExpr(const string& newExpr, bool isGroup) {
+myRegexBase myRegexBase::changeExpr(const ::std::string& newExpr, bool isGroup) const {
     myRegexBase r = myRegexBase(newExpr, isGroup);
     for (auto v : captureNames) r.captureNames.push_back(v);
+    return r;
 }

@@ -14,13 +14,11 @@ class myAppRegex : public myRegexBase {
     static myAppRegex Cidentifier;
 
     static myAppRegex MHPP_begin() {
-        myAppRegex classname = Cidentifier;// +
-//                        zeroOrMore_greedy() +
-//txt("::") + Cidentifier
-            // destructor tilde and method name
-  //          "::" + capture(zeroOrOne("~")) + capture(CPP_methodName) + wsOpt +
+        myAppRegex classname = Cidentifier + zeroOrMore_greedy(txt("::") + Cidentifier);
+        myAppRegex methodname = zeroOrOne_greedy(txt("~")) + Cidentifier;
+        //          "::" + capture(zeroOrOne("~")) + capture(CPP_methodName) + wsOpt +
 
-            myAppRegex r = txt("MHPP") + wsOpt + openRoundBracket + doubleQuote + txt("begin") + wsSep + capture();
+        myAppRegex r = txt("MHPP") + wsOpt + openRoundBracket + doubleQuote + txt("begin") + wsSep + capture(classname, "classname") + txt("::") + capture(methodname, "methodname");
         return r;
     }
 };
@@ -65,7 +63,7 @@ myAppRegex myAppRegex::wsSep = myAppRegex::rx("\\s+", /*isGroup*/ false);
 myAppRegex myAppRegex::openRoundBracket = myAppRegex::txt("(");
 myAppRegex myAppRegex::wsOpt = myAppRegex::rx("\\s*", /*isGroup*/ false);
 myAppRegex myAppRegex::doubleQuote = myAppRegex::txt("\"");
-myAppRegex myAppRegex::Cidentifier = myAppRegex::rx("[_a-zA-Z][_a-zA-Z0-9]*");
+myAppRegex myAppRegex::Cidentifier = myAppRegex::rx("[_a-zA-Z][_a-zA-Z0-9]*", false);
 int main() {
     myRegexBase r = myRegexBase::txt("Hello World");
     return 0;
