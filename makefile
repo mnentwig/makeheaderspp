@@ -3,7 +3,7 @@ all: makeheaderspp.exe
 makeheaderspp.exe: makeheaderspp.cpp
 	g++ -o $@ makeheaderspp.cpp ${CXXFLAGS}
 demo: makeheaderspp.exe
-	./makeheaderspp.exe myRegex.cpp myRegex.h
+	./makeheaderspp.exe myRegexBase.cpp myRegexBase.h
 clean: 
 	rm -f makeheaderspp.exe
 .PHONY: clean demo

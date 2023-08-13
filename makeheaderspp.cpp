@@ -311,6 +311,8 @@ class codeGen {
 
     static string readFile(const string& fname) {
         std::ostringstream oss;
+        auto s = std::ifstream(fname, std::ios::binary);
+        if (!s) throw runtime_error("failed to read '" + fname + "'");
         oss << std::ifstream(fname, std::ios::binary).rdbuf();
         return oss.str();
     }
