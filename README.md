@@ -82,6 +82,18 @@ The following types of class methods are supported:
 * const
 * noexcept
 
+### Limitations
+Template return arguments need a typedef, e.g. 
+```
+// already in header
+typedef ::std::map<::std::string, size_t> myMap_t;
+// ... then in .cpp file
+MHPP("public")
+myMap_t myClass::myFunReturningMap() {
+    //...
+}
+```
+
 ### Notes:
 The tool attempts to be failsafe and rewrites files only when all checks have passed (note: the redundant class name in `MHPP("begin myClass") ... MHPP("end myClass")`is one of them). 
 

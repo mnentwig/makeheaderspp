@@ -1,7 +1,9 @@
 #include "myRegexBase.h"
 
-#include <cstring>
-using std::string;
+#include <cstring>  // strchr
+#include <iostream> // debug
+#include <stdexcept>
+using std::string, std::map, std::to_string, std::runtime_error;
 
 // ==========================
 // === myRegexBase public ===
@@ -19,26 +21,6 @@ myRegexBase myRegexBase::txt(const ::std::string& text) {
         out.push_back(ch);
     }
     return myRegexBase(out, /*isGroup*/ false);
-}
-
-MHPP("public")
-myRegexBase myRegexBase::operator+(const myRegexBase& arg) const {
-    myRegexBase a = this->makeGrp();
-    myRegexBase b = arg.makeGrp();
-    myRegexBase r = myRegexBase(a.expr + b.expr, false);
-    for (auto v : a.captureNames) r.captureNames.push_back(v);
-    for (auto v : b.captureNames) r.captureNames.push_back(v);
-    return r;
-}
-
-MHPP("public")
-myRegexBase myRegexBase::operator|(const myRegexBase& arg) const {
-    myRegexBase a = this->makeGrp();
-    myRegexBase b = arg.makeGrp();
-    myRegexBase r = myRegexBase(a.expr + "|" + b.expr, false);
-    for (auto v : a.captureNames) r.captureNames.push_back(v);
-    for (auto v : b.captureNames) r.captureNames.push_back(v);
-    return r;
 }
 
 MHPP("public static")
@@ -76,6 +58,49 @@ myRegexBase myRegexBase::capture(const myRegexBase& arg, const ::std::string& ca
     r.captureNames.insert(r.captureNames.begin(), captName);
     return r;
 }
+
+MHPP("public")
+::std::string myRegexBase::getNamedCapture(const ::std::string& name, const ::std::smatch& m) const {
+    const size_t nNames = captureNames.size();
+    for (auto n : captureNames) ::std::cout << n << ::std::endl;
+    if (m.size() != nNames + 1) throw runtime_error("unexpected number of regex matches (" + to_string(m.size()) + ") expecting " + to_string(nNames) + "+1 captures");
+    for (size_t ix = 0; ix < nNames; ++ix)
+        if (captureNames[ix] == name)
+            return m[ix];
+    throw runtime_error("Named match '" + name + "' not found");
+}
+
+MHPP("public")
+myRegexBase myRegexBase::operator+(const myRegexBase& arg) const {
+    const myRegexBase& a = *this;
+    myRegexBase b = arg;
+    myRegexBase r = myRegexBase(a.expr + b.expr, false);
+    for (auto v : a.captureNames) r.captureNames.push_back(v);
+    for (auto v : b.captureNames) r.captureNames.push_back(v);
+    return r;
+}
+
+MHPP("public")
+myRegexBase myRegexBase::operator|(const myRegexBase& arg) const {
+    myRegexBase a = this->makeGrp();
+    myRegexBase b = arg.makeGrp();
+    myRegexBase r = myRegexBase(a.expr + "|" + b.expr, false);
+    for (auto v : a.captureNames) r.captureNames.push_back(v);
+    for (auto v : b.captureNames) r.captureNames.push_back(v);
+    return r;
+}
+
+myRegexBase::operator ::std::regex() { // FIXME support this
+    return ::std::regex(getExpr());
+}
+
+MHPP("public")
+::std::string myRegexBase::getExpr() const {
+    return expr;
+}
+
+//MHPP("public")
+//bool matchAny
 
 // ==============================
 // === myRegexBase non-public ===

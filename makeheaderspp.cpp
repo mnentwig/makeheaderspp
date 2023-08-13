@@ -108,7 +108,7 @@ class codeGen {
        public:
         static string getAHMETHOD() {
             const string oneSpecifier = oneOf({"noexcept", "const"});
-            const string CPP_return_type = zeroOrOne("const" + wsSep) + Cidentifier + "[\\&\\*]*";
+            const string CPP_return_type = zeroOrOne("const" + wsSep) + zeroOrMore_greedy("::" + Cidentifier) + Cidentifier + "[\\&\\*]*";
             const string CPP_methodName = oneOf({Cidentifier, "operator\\s*[^\\s\\(]+"});
 
             return "MHPP" + wsOpt + literal("(") + wsOpt + capture(zeroOrMore_nonGreedy(any)) + "\"" + wsOpt + "\\)" + wsOpt +
