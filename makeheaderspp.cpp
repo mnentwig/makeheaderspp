@@ -5,7 +5,6 @@
 #include <map>
 #include <regex>
 #include <set>
-#include <sstream>  // ifstream
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -108,7 +107,7 @@ class codeGen {
        public:
         static string getAHMETHOD() {
             const string oneSpecifier = oneOf({"noexcept", "const"});
-            const string CPP_return_type = zeroOrOne("const" + wsSep) + zeroOrMore_greedy("::" + Cidentifier) + Cidentifier + "[\\&\\*]*";
+            //const string CPP_return_type = zeroOrOne("const" + wsSep) + zeroOrMore_greedy("::" + Cidentifier) + Cidentifier + "[\\&\\*]*";
             const string CPP_methodName = oneOf({Cidentifier, "operator\\s*[^\\s\\(]+"});
 
             return "MHPP" + wsOpt + literal("(") + wsOpt + capture(zeroOrMore_nonGreedy(any)) + "\"" + wsOpt + "\\)" + wsOpt +
@@ -116,7 +115,9 @@ class codeGen {
                    zeroOrOne(capture("constexpr") + wsSep) +
 
                    // method return type (empty for a constructor)
-                   zeroOrOne(capture(CPP_return_type) + wsSep) +
+                   capture(
+                       zeroOrOne("const" + wsSep) +  // "const" is optional (if found, enforce separator)
+                       zeroOrOne(oneOrMore_nonGreedy("[^\\(]") + wsSep)) +
 
                    // class names
                    capture(Cidentifier +
@@ -235,6 +236,8 @@ class codeGen {
         const string& methodname = captures[6];
         const string& args = captures[7];
         const string& maybeNoexceptConst = captures[8];
+
+cout << "XXX" << maybeReturnType << endl;
 
         string destText;
         if (AH_keyword.find("virtual") != string::npos)
