@@ -3,8 +3,9 @@
 #include <cassert>
 #include <cstring>   // strchr
 #include <iostream>  // debug
+#include <set>
 #include <stdexcept>
-using std::string, std::map, std::to_string, std::runtime_error, std::vector, std::smatch, std::ssub_match, std::pair, std::cout, std::endl;
+using std::string, std::map, std::to_string, std::runtime_error, std::vector, std::smatch, std::ssub_match, std::pair, std::cout, std::endl, ::std::set;
 
 // ==========================
 // === myRegexBase public ===
@@ -103,6 +104,8 @@ myRegexBase myRegexBase::operator|(const myRegexBase& arg) const {
 }
 
 myRegexBase::operator ::std::regex() {  // FIXME support this
+    const set<string> captNamesUnique(captureNames.begin(), captureNames.end());
+    assert(captNamesUnique.size() == captureNames.size() && "duplicate capture names");
     return ::std::regex(getExpr());
 }
 
@@ -116,8 +119,10 @@ void myRegexBase::allMatches(const ::std::string& text, ::std::vector<myRegexBas
     assert(0 == nonMatch.size());
     assert(0 == captures.size());
     const ::std::regex r = *this;
+    cout << "REGEX: " << getExpr() << endl;
     const string::const_iterator start = text.cbegin();
     std::sregex_iterator it(text.cbegin(), text.cend(), r);
+    cout << "got iterator " << endl;
     std::sregex_iterator itEnd;
     auto trailer = text.cbegin();
     while (it != itEnd) {
@@ -153,6 +158,7 @@ void myRegexBase::allMatches(const ::std::string& text, ::std::vector<myRegexBas
     }
     nonMatch.push_back(range(start, trailer, text.cend()));
     assert(nonMatch.size() == captures.size() + 1);  // unmatched|match|unmatched|match|...|unmatched
+    cout << "iterator done " << endl;
 }
 
 // ==============================

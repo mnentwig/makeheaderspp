@@ -28,36 +28,47 @@ class myAppRegex : public myRegexBase {
     static myAppRegex CComment;
     static myAppRegex CppComment;
     static myAppRegex doubleColon;
+    static myAppRegex any;
 
     static myAppRegex MHPP_classitem() {
-        return txt("MHPP") + wsOpt +
-               openRoundBracket + wsOpt +
-               doubleQuote + wsOpt +
-               capture("MHPP_keyword",
-                       makeGrp(txt("public") |
-                               txt("protected") | txt("private")) +
-                           wsOpt + zeroOrMore_greedy(rx("[^\"]", false)) + wsOpt) +
-               doubleQuote + wsOpt + closingRoundBracket + wsOpt +
+        return txt("MHPP(\"") +
+               // public or private or protected (all start with "p")
+               capture("MHPP_keyword", txt("p") + zeroOrMore_lazy(rx(".", false))) + txt("\")") + wsOpt +
                capture("comment", zeroOrMore_greedy(CComment | CppComment)) + wsOpt +
                // return type (optional, free form for templates, may include constexpr, const separated by whitespace)
-               zeroOrMore_greedy(capture("returntype", rx("[^\\(]*", false)) + wsSep) +
-               // class name
-               oneOrMore_greedy(capture("classname", Cidentifier + doubleColon + zeroOrMore_greedy(Cidentifier + doubleColon))) +
+               capture("returntype", rx(".*?", false)) +
+               // class name (final :: not captured)
+               oneOrMore_greedy(capture("classname", Cidentifier + zeroOrMore_greedy(doubleColon + Cidentifier))) + doubleColon +
+
                // method name
                capture("methodname", zeroOrOne_greedy(txt("~")) + Cidentifier) + wsOpt +
+               // arguments list (may not contain a round bracket)
                capture("arglist", openRoundBracket + rx("[^\\)]*", false) + closingRoundBracket) + wsOpt +
-               capture("postArgQual", zeroOrMore_greedy(txt("noexcept") | txt("const"))) + wsOpt +
+               // qualifiers after arg list
+               capture("postArgQual", rx("[a-z\\s]+", false)) + wsOpt +
                txt("{");
     }
 
     static myAppRegex MHPP_begin() {
-        myAppRegex classname = zeroOrMore_greedy(doubleColon) + Cidentifier + zeroOrMore_greedy(doubleColon + Cidentifier);
-        myAppRegex methodname = zeroOrOne_greedy(txt("~")) + Cidentifier;
+        myAppRegex classname = Cidentifier + zeroOrMore_greedy(doubleColon + Cidentifier);
 
-        myAppRegex r = txt("MHPP") + wsOpt + openRoundBracket + wsOpt + doubleQuote + wsOpt + txt("begin") + wsSep +
-                       capture("classname", classname) + doubleColon +
-                       capture("methodname", methodname) + wsOpt +
-                       closingRoundBracket;
+        myAppRegex r =
+            // indent of MHPP(...)
+            capture("indent", rx("[ \\t]*", false)) +
+
+            // MHPP ("begin myClass::myMethod")
+            txt("MHPP(\"begin ") +
+            capture("classname1", classname) +
+            txt("\")") +
+
+            // existing definitions (to be replaced)
+            capture("body", rx("[\\s\\S]*", false)) +
+
+            // MHPP ("end myClass::myMethod")
+            txt("MHPP(\"end ") +
+            capture("classname2", classname) +
+            txt("\")");
+
         return r;
     }
 };
@@ -70,7 +81,8 @@ myAppRegex myAppRegex::Cidentifier = myAppRegex::rx("[_a-zA-Z][_a-zA-Z0-9]*", fa
 myAppRegex myAppRegex::eol = myAppRegex::rx("\\r?\\n", false);
 myAppRegex myAppRegex::CComment = myAppRegex::rx("//.*", false) + eol;
 myAppRegex myAppRegex::CppComment = myAppRegex::rx("/\\*.*?\\*/", false) + eol;
-myAppRegex myAppRegex::doubleColon = wsOpt + txt("::") + wsOpt;
+myAppRegex myAppRegex::doubleColon = txt("::");
+myAppRegex myAppRegex::any = wsOpt + rx(".*", false);  // regex "." does not include newline
 
 string readFile(const string& fname) {
     std::ostringstream oss;
@@ -130,6 +142,7 @@ class codeGen {
         std::vector<myAppRegex::range> nonCapt;
         std::vector<std::map<string, myAppRegex::range>> capt;
         rx.allMatches(all, nonCapt, capt);
+        cout << "XXXXXXX" << capt.size() << endl;
 
         // === replace AHBEGIN(classname)...AHEND with respective classname's declarations ===
         const size_t nCapt = capt.size();
@@ -243,37 +256,45 @@ class codeGen {
         cout << destText << endl;
     }
 
-    string AHBEGIN(const vector<string>& captures) {
-        assert(captures.size() == 4);
-        string indent = captures[1];
-        string classname = captures[2];
-        string classnameEnd = captures[3];
-        if (classname != classnameEnd) throw runtime_error("MHPP(\"begin " + classname + "\") terminated by MHPP(\"end " + classnameEnd + ")\"");
+    string AHBEGIN(const std::map<string, myAppRegex::range> capt) {
+        auto it = capt.find("indent");
+        assert(it != capt.end());
+        string indent = it->second.str();
 
-        auto it = classesByName.find(classname);
-        if (it == classesByName.end()) throw runtime_error("no data for AHBEGIN(" + classname + ")");
+        it = capt.find("classname1");
+        assert(it != capt.end());
+        string classname1 = it->second.str();
+
+        it = capt.find("classname2");
+        assert(it != capt.end());
+        string classname2 = it->second.str();
+
+        if (classname1 != classname2) throw runtime_error("MHPP(\"begin " + classname1 + "\") terminated by MHPP(\"end " + classname2 + ")\"");
+
+        auto itc = classesByName.find(classname1);
+        if (itc == classesByName.end()) throw runtime_error("no data for AHBEGIN(" + classname1 + ")");
 
         // === sanity check that each class has only one AHBEGIN(classname)...AHEND section ===
-        auto r2 = classDone.find(classname);
+        auto r2 = classDone.find(classname1);
         assert(r2 != classDone.end());
-        if (r2->second) throw runtime_error("duplicate AHBEGIN(" + classname + ")");
+        if (r2->second) throw runtime_error("duplicate AHBEGIN(" + classname1 + ")");
         r2->second = true;
 
         string indentp1 = indent + "\t";
 
-        const oneClass& c = it->second;
+        const oneClass& c = itc->second;
         const string pubTxt = c.getPublicText(indentp1);
         const string protTxt = c.getProtectedText(indentp1);
         const string privTxt = c.getPrivateText(indentp1);
         string res;
-        res += indent + "MHPP(\"begin " + classname + "\") // === autogenerated code. Do not edit ===\n";
+        res += indent + "MHPP(\"begin " + classname1 + "\") // === autogenerated code. Do not edit ===\n";
         if (pubTxt.size() > 0)
             res += indent + "public:\n" + pubTxt;
         if (protTxt.size() > 0)
             res += indent + "protected:\n" + protTxt;
         if (privTxt.size() > 0)
             res += indent + "private:\n" + privTxt;
-        res += indent + "MHPP(\"end " + classname + "\")";  // no newline (pattern ends before it)
+        res += indent + "MHPP(\"end " + classname1 + "\")";  // no newline (pattern ends before it)
         return res;
     }
 

@@ -1,4 +1,5 @@
-CXXFLAGS := -O -static -std=c++17 -D_GLIBCXX_DEBUG -Wall -Wextra -pedantic
+CXXFLAGS := -O -static -std=c++17 -Wall -Wextra -pedantic -D_GLIBCXX_DEBUG 
+#-DNDEBUG
 all: makeheaderspp.exe
 makeheaderspp.exe: makeheaderspp.cpp
 	g++ -o $@ makeheaderspp.cpp ${CXXFLAGS}
