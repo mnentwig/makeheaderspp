@@ -1,11 +1,11 @@
 #include <cassert>
 #include <fstream>  // ifstream
 #include <iostream>
+#include <map>
 #include <regex>
 #include <set>
 #include <stdexcept>
 #include <vector>
-#include <map>
 
 #include "myRegexBase.h"
 using std::cout, std::endl, std::string, std::runtime_error, std::vector, std::set, std::map;
@@ -120,28 +120,28 @@ class codeGen {
             MHPPMETHOD(a);
     }
 
-#if 0
     void pass2(const string& fname) {
         // === retrieve original file contents ===
         auto it = filebodyByFilename.find(fname);
         assert(it != filebodyByFilename.end());
         string all = it->second;
         // === break into nonmatch|match|nonmatch|...|nonmatch stream ===
-        regex r = regex(myRegexGen::getMHPP_beginEnd());
-        vector<string> unmatched;
-        vector<vector<string>> captures;
-        regexGen::process(all, r, unmatched, captures);
+        myAppRegex rx = myAppRegex::MHPP_begin();
+        std::vector<myAppRegex::range> nonCapt;
+        std::vector<std::map<string, myAppRegex::range>> capt;
+        rx.allMatches(all, nonCapt, capt);
+
         // === replace AHBEGIN(classname)...AHEND with respective classname's declarations ===
-        const size_t nCapt = captures.size();
+        const size_t nCapt = capt.size();
         if (nCapt == 0)
             return;
-        assert(unmatched.size() == nCapt + 1);  // implies > 0
+        assert(nonCapt.size() == nCapt + 1);  // implies > 0
         string res;
         for (size_t ixMatch = 0; ixMatch < nCapt; ++ixMatch) {
-            res += unmatched[0];
-            res += AHBEGIN(captures[ixMatch]);
+            res += nonCapt[ixMatch].str();
+            res += AHBEGIN(capt[ixMatch]);
         }
-        res += unmatched[nCapt];
+        res += nonCapt[nCapt].str();
 
         // === replace in-memory file contents (but don't write yet) ===
         auto r2 = filebodyByFilename.find(fname);
@@ -154,13 +154,16 @@ class codeGen {
         cout << "===" << fname << "===\n"
              << res;
     }
+
     void pass3(const string& fname) {
         if (filesNeedRewrite.find(fname) == filesNeedRewrite.end())
             return;
         auto it = filebodyByFilename.find(fname);
         assert(it != filebodyByFilename.end());
         string all = it->second;
-        std::ofstream(fname, std::ios::binary) << all;
+        //      std::ofstream(fname, std::ios::binary) << all;
+        cout << fname << endl
+             << all;
     }
 
     void checkAllClassesDone() {
@@ -168,7 +171,6 @@ class codeGen {
             if (!it.second)
                 throw runtime_error("no MHPP(\"begin " + it.first + "\") ... MHPP(\"end " + it.first + "\") anywhere in files");
     }
-#endif
 
    protected:
     static string range2string(const myRegexBase::range_t& r) {
@@ -238,7 +240,7 @@ class codeGen {
             c.addProtectedText(destText);
         if (isPrivate)
             c.addPrivateText(destText);
-            cout << destText << endl;
+        cout << destText << endl;
     }
 
     string AHBEGIN(const vector<string>& captures) {
@@ -318,12 +320,10 @@ int main(int argc, const char** argv) {
     codeGen cg;
     for (const string& filename : filenames)
         cg.pass1(filename);
-#if false
     for (const string& filename : filenames)
         cg.pass2(filename);
     cg.checkAllClassesDone();
     for (const string& filename : filenames)
         cg.pass3(filename);
-#endif
     return 0;
 }
