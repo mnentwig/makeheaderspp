@@ -30,34 +30,59 @@ class myAppRegex : public myRegexBase {
     static myAppRegex doubleColon;
     static myAppRegex any;
 
-    static myAppRegex MHPP_classitem() {
+    static myAppRegex MHPP_classfun() {
         return txt("MHPP(\"") +
                // public or private or protected (all start with "p")
-               capture("MHPP_keyword", txt("p") + zeroOrMore_lazy(rx(".", false))) + txt("\")") + wsOpt +
-               capture("comment", zeroOrMore_greedy(CComment | CppComment)) + wsOpt +
+               capture("fun_MHPP_keyword", txt("p") + zeroOrMore_lazy(rx(".", false))) + txt("\")") + wsOpt +
+               capture("fun_comment", zeroOrMore_greedy(CComment | CppComment)) + wsOpt +
                // return type (optional, free form for templates, may include constexpr, const separated by whitespace)
-               capture("returntype", rx(".*?", false)) +
+               capture("fun_returntype", rx(".*?", false)) +
 
                // class name (final :: not captured)
                // oneOrMore_greedy(capture("classname", Cidentifier + zeroOrMore_greedy(doubleColon + Cidentifier))) + doubleColon +
 
                // method name
                // capture("methodname", zeroOrOne_greedy(txt("~")) + Cidentifier) + wsOpt +
-               capture("classmethodname", rx("["
-                                             "_"
-                                             "~"
-                                             ":"
-                                             "a-z"
-                                             "A-Z"
-                                             "0-9"
-                                             "]+",
-                                             false)) +
+               capture("fun_classmethodname", rx("["
+                                                 "_"
+                                                 "~"
+                                                 ":"
+                                                 "a-z"
+                                                 "A-Z"
+                                                 "0-9"
+                                                 "]+",
+                                                 false)) +
 
                // arguments list (may not contain a round bracket)
-               capture("arglist", openRoundBracket + rx("[^\\)]*", false) + closingRoundBracket) + wsOpt +
+               capture("fun_arglist", openRoundBracket + rx("[^\\)]*", false) + closingRoundBracket) + wsOpt +
                // qualifiers after arg list
-               capture("postArg", rx("[^\\{]+", false)) + wsOpt +
+               capture("fun_postArg", rx("[^\\{]+", false)) + wsOpt +
                txt("{");
+    }
+
+    static myAppRegex MHPP_classvar() {
+        return txt("MHPP(\"") +
+               // public or private or protected (all start with "p")
+               capture("var_MHPP_keyword", txt("p") + zeroOrMore_lazy(rx(".", false))) + txt("\")") + wsOpt +
+               capture("var_comment", zeroOrMore_greedy(CComment | CppComment)) + wsOpt +
+               // return type (optional, free form for templates, may include constexpr, const separated by whitespace)
+               capture("var_returntype", rx(".*?", false)) +
+
+               // name
+               capture("var_classvarname", rx("["
+                                              "_"
+                                              ":"
+                                              "a-z"
+                                              "A-Z"
+                                              "0-9"
+                                              "]+",
+                                              false)) +
+
+               rx("\\s*"
+                  "="
+                  ".*"
+                  ";",
+                  false);
     }
 
     static myAppRegex MHPP_begin() {
@@ -117,6 +142,19 @@ class oneClass {
     const string getPublicText(const string& indent) const { return indentStringVec(publicText, indent); }
     const string getProtectedText(const string& indent) const { return indentStringVec(protectedText, indent); }
     const string getPrivateText(const string& indent) const { return indentStringVec(privateText, indent); }
+    void addTextByKeyword(const string& keyword, const string& text, const string& errorObjName) {
+        size_t isPublic = keyword.find("public") != string::npos ? 1 : 0;
+        size_t isProtected = keyword.find("protected") != string::npos ? 1 : 0;
+        size_t isPrivate = keyword.find("private") != string::npos ? 1 : 0;
+        if (isPublic + isProtected + isPrivate < 1) throw runtime_error(errorObjName + " needs AH: public|private|protected (got '" + keyword + "')");
+        if (isPublic + isProtected + isPrivate > 1) throw runtime_error(errorObjName + " has more than one choice of AH: public|private|protected (got '" + keyword + "')");
+        if (isPublic)
+            addPublicText(text);
+        if (isProtected)
+            addProtectedText(text);
+        if (isPrivate)
+            addPrivateText(text);
+    }
 
    protected:
     vector<string> publicText;
@@ -140,12 +178,13 @@ class codeGen {
         if (!r.second) throw runtime_error("duplicate filename: '" + fname + "'");
 
         // === break into nonmatch|match|nonmatch|...|nonmatch stream ===
-        myAppRegex rx = myAppRegex::MHPP_classitem();
+        myAppRegex rx = myAppRegex::MHPP_classfun().makeGrp() | myAppRegex::MHPP_classvar().makeGrp();
+        //        cout << rx.getExpr() << endl;
         std::vector<myAppRegex::range> nonCapt;
         std::vector<std::map<string, myAppRegex::range>> capt;
         rx.allMatches(all, nonCapt, capt);
         for (const auto& a : capt)
-            MHPPMETHOD(a);
+            MHPP_classitem(a);
     }
 
     void pass2(const string& fname) {
@@ -158,7 +197,6 @@ class codeGen {
         std::vector<myAppRegex::range> nonCapt;
         std::vector<std::map<string, myAppRegex::range>> capt;
         rx.allMatches(all, nonCapt, capt);
-        cout << "XXXXXXX" << capt.size() << endl;
 
         // === replace AHBEGIN(classname)...AHEND with respective classname's declarations ===
         const size_t nCapt = capt.size();
@@ -180,8 +218,7 @@ class codeGen {
             assert(/*insertion may not fail*/ r.second);
         }
         r2->second = res;
-        cout << "===" << fname << "===\n"
-             << res;
+        //        cout << "===" << fname << "===\n" << res;
     }
 
     void pass3(const string& fname) {
@@ -206,13 +243,14 @@ class codeGen {
         return string(r.first, r.second);
     }
 
-    void MHPPMETHOD(const std::map<string, myAppRegex::range> capt) {
-        const string keyword = myAppRegex::namedCaptAsString("MHPP_keyword", capt);
-        const string comment = myAppRegex::namedCaptAsString("comment", capt);
-        const string returntype = myAppRegex::namedCaptAsString("returntype", capt);
-        const string classmethodname = myAppRegex::namedCaptAsString("classmethodname", capt);
-        const string arglist = myAppRegex::namedCaptAsString("arglist", capt);
-        const string postArg = myAppRegex::namedCaptAsString("postArg", capt);
+    void MHPP_classfun(const std::map<string, myAppRegex::range> capt) {
+        const string keyword = myAppRegex::namedCaptAsString("fun_MHPP_keyword", capt);
+        const string comment = myAppRegex::namedCaptAsString("fun_comment", capt);
+        const string returntype = myAppRegex::namedCaptAsString("fun_returntype", capt);
+        const string classmethodname = myAppRegex::namedCaptAsString("fun_classmethodname", capt);
+        const string arglist = myAppRegex::namedCaptAsString("fun_arglist", capt);
+        const string postArg = myAppRegex::namedCaptAsString("fun_postArg", capt);
+        assert(keyword.size() > 0);
 
         // parse classname::methodname
         myAppRegex rcm = myAppRegex::classMethodname();
@@ -232,7 +270,7 @@ class codeGen {
         if (keyword.find("static") != string::npos)
             destText += "static ";
 
-        destText += returntype; // includes separating whitespace + string((returntype.size() > 0) ? " " : "");
+        destText += returntype;  // includes separating whitespace + string((returntype.size() > 0) ? " " : "");
         destText += methodname;
         destText += arglist;
         if (postArg.find("const") != string::npos)
@@ -252,18 +290,65 @@ class codeGen {
             assert(r2.second);
         }
         oneClass& c = itc->second;
-        size_t isPublic = keyword.find("public") != string::npos ? 1 : 0;
-        size_t isProtected = keyword.find("protected") != string::npos ? 1 : 0;
-        size_t isPrivate = keyword.find("private") != string::npos ? 1 : 0;
-        if (isPublic + isProtected + isPrivate < 1) throw runtime_error(classname + "::" + methodname + " needs AH: public|private|protected (got '" + keyword + "')");
-        if (isPublic + isProtected + isPrivate > 1) throw runtime_error(classname + "::" + methodname + " has more than one choice of AH: public|private|protected (got '" + keyword + "')");
-        if (isPublic)
-            c.addPublicText(destText);
-        if (isProtected)
-            c.addProtectedText(destText);
-        if (isPrivate)
-            c.addPrivateText(destText);
+        c.addTextByKeyword(keyword, destText, /*for error message*/ classmethodname);
+
         cout << destText << endl;
+    }
+    void MHPP_classvar(const std::map<string, myAppRegex::range> capt) {
+        const string keyword = myAppRegex::namedCaptAsString("var_MHPP_keyword", capt);
+        const string comment = myAppRegex::namedCaptAsString("var_comment", capt);
+        const string returntype = myAppRegex::namedCaptAsString("var_returntype", capt);
+        const string classvarname = myAppRegex::namedCaptAsString("var_classvarname", capt);
+        assert(keyword.size() > 0);
+
+        // parse classname::varname
+        myAppRegex rcm = myAppRegex::classMethodname();  // reusing regex
+        map<string, myAppRegex::range> cm;
+        if (!rcm.match(classvarname, cm)) {
+            for (auto x : capt) cout << x.first << "\t" << x.second.str() << endl;
+            throw runtime_error("'" + classvarname + "' is not of the expected format classname::(classname...)::varname");
+        }
+
+        const string classname = myAppRegex::namedCaptAsString("classname", cm);
+        const string varname = myAppRegex::namedCaptAsString("methodname", cm);
+
+        // build output line
+        string destText;
+        if (keyword.find("static") == string::npos)
+            throw runtime_error("var " + varname + " must be static");
+        destText += "static ";
+
+        destText += returntype;  // includes separating whitespace
+        destText += varname;
+
+        destText += ";";
+        auto itc = classesByName.find(classname);
+        if (itc == classesByName.end()) {
+            // === create new oneClass for classnames ===
+            auto r = classesByName.insert({classname, oneClass()});
+            itc = r.first;
+            assert(r.second);
+            // === flag as class that is waiting for an AHBEGIN(classname)...AHEND section ===
+            auto r2 = classDone.insert({classname, false});
+            assert(r2.second);
+        }
+
+        oneClass& c = itc->second;
+        c.addTextByKeyword(keyword, destText, classvarname);
+        cout << destText << endl;
+    }
+
+    void MHPP_classitem(const std::map<string, myAppRegex::range> capt) {
+        const string fun_keyword = myAppRegex::namedCaptAsString("fun_MHPP_keyword", capt);
+        const string var_keyword = myAppRegex::namedCaptAsString("var_MHPP_keyword", capt);
+        bool isFun = fun_keyword.size() > 0;
+        bool isVar = var_keyword.size() > 0;
+        if (isFun && !isVar)
+            MHPP_classfun(capt);
+        else if (!isFun && isVar)
+            MHPP_classvar(capt);
+        else
+            throw runtime_error("?? neither var nor fun (or both) ??");
     }
 
     string AHBEGIN(const std::map<string, myAppRegex::range> capt) {

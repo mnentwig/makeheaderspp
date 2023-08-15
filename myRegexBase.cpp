@@ -168,23 +168,23 @@ std::string myRegexBase::namedCaptAsString(const std::string& name, std::map<std
     return it->second.str();
 }
 
-// ==============================
-// === myRegexBase non-public ===
-// ==============================
-MHPP("protected")
-myRegexBase::myRegexBase(const ::std::string& expr, bool isGroup) : expr(expr), isGroup(isGroup) {}
+MHPP("public static")
+myRegexBase myRegexBase::makeGrp(const myRegexBase& arg) {
+    if (arg.isGroup) return arg;
+    return arg.changeExpr("(?:" + arg.expr + ")", true);
+}
 
-MHPP("protected")
+MHPP("public")
 myRegexBase myRegexBase::makeGrp() const {
     if (this->isGroup) return *this;
     return changeExpr("(?:" + expr + ")", true);
 }
 
-MHPP("protected static")
-myRegexBase myRegexBase::makeGrp(const myRegexBase& arg) {
-    if (arg.isGroup) return arg;
-    return arg.changeExpr("(?:" + arg.expr + ")", true);
-}
+// ==============================
+// === myRegexBase non-public ===
+// ==============================
+MHPP("protected")
+myRegexBase::myRegexBase(const ::std::string& expr, bool isGroup) : expr(expr), isGroup(isGroup) {}
 
 MHPP("protected")
 myRegexBase myRegexBase::changeExpr(const ::std::string& newExpr, bool isGroup) const {
@@ -214,3 +214,6 @@ std::map<std::string, myRegexBase::range> myRegexBase::smatch2named(const std::s
     }
     return r;
 }
+
+MHPP("public static")
+std::string myRegexBase::test=std::string("test");

@@ -45,14 +45,15 @@ class myRegexBase {
     	bool  match(const ::std::string& text, ::std::map<::std::string, myRegexBase::range>& captures);
     	void  allMatches(const ::std::string& text, ::std::vector<myRegexBase::range>& nonMatch, ::std::vector<::std::map<::std::string, myRegexBase::range>>& captures);
     	static std::string  namedCaptAsString(const std::string& name, std::map<std::string, myRegexBase::range> capt);
+    	static myRegexBase  makeGrp(const myRegexBase& arg);
+    	myRegexBase  makeGrp() const;
     protected:
     	myRegexBase(const ::std::string& expr, bool isGroup);
-    	myRegexBase  makeGrp() const;
-    	static myRegexBase  makeGrp(const myRegexBase& arg);
     	myRegexBase  changeExpr(const ::std::string& newExpr, bool isGroup) const;
     	std::map<std::string, myRegexBase::range>  smatch2named(const std::smatch& m, const std::string::const_iterator start);
     MHPP("end myRegexBase")    
    public:
+   static std::string test;
     operator ::std::regex();
    protected:
     // expression in human-readable regex format
