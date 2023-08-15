@@ -98,7 +98,7 @@ class myAppRegex : public myRegexBase {
             txt("\")") +
 
             // existing definitions (to be replaced)
-            capture("body", rx("[\\s\\S]*", false)) +
+            capture("body", rx("[\\s\\S]*?", false)) +
 
             // MHPP ("end myClass::myMethod")
             txt("MHPP(\"end ") +
@@ -367,12 +367,12 @@ class codeGen {
         if (classname1 != classname2) throw runtime_error("MHPP(\"begin " + classname1 + "\") terminated by MHPP(\"end " + classname2 + ")\"");
 
         auto itc = classesByName.find(classname1);
-        if (itc == classesByName.end()) throw runtime_error("no data for AHBEGIN(" + classname1 + ")");
+        if (itc == classesByName.end()) throw runtime_error("no data for MHPP(\"begin " + classname1 + "\")");
 
         // === sanity check that each class has only one AHBEGIN(classname)...AHEND section ===
         auto r2 = classDone.find(classname1);
         assert(r2 != classDone.end());
-        if (r2->second) throw runtime_error("duplicate AHBEGIN(" + classname1 + ")");
+        if (r2->second) throw runtime_error("duplicate MHPP(\"begin...end " + classname1 + "\")");
         r2->second = true;
 
         string indentp1 = indent + "\t";
@@ -409,20 +409,6 @@ class codeGen {
 };
 
 int main(int argc, const char** argv) {
-#if 0
-    myAppRegex ra = myAppRegex::MHPP_classitem();
-
-    std::vector<myRegexBase::range_t> nonCapt;
-    std::vector<std::map<string, myAppRegex::range_t>> capt;
-    string all = readFile("myRegexBase.cpp");
-    ra.allMatches(all, nonCapt, capt);
-
-    for (const auto& a : capt)
-        for (const auto& b : a)
-            cout << b.first << "\t" << string(b.second.first, b.second.second) << endl;
-    cout << myAppRegex::MHPP_classitem().getExpr() << endl;
-    return 0;
-#endif
     // === copy command line args as filenames ===
     vector<string> filenames;
     set<string> uniqueFilenames;
