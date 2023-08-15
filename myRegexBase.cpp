@@ -115,6 +115,15 @@ MHPP("public")
 }
 
 MHPP("public")
+bool myRegexBase::match(const ::std::string& text, ::std::map<::std::string, myRegexBase::range>& captures) {
+    std::smatch m;
+    if (!std::regex_match(text, m, (std::regex) * this))
+        return false;
+    captures = smatch2named(m, /*start*/ text.cbegin());
+    return true;
+}
+
+MHPP("public")
 void myRegexBase::allMatches(const ::std::string& text, ::std::vector<myRegexBase::range>& nonMatch, ::std::vector<::std::map<::std::string, myRegexBase::range>>& captures) {
     assert(0 == nonMatch.size());
     assert(0 == captures.size());
@@ -140,25 +149,23 @@ void myRegexBase::allMatches(const ::std::string& text, ::std::vector<myRegexBas
         }
         nonMatch.push_back(range(/* head of file (origin)*/ start, /* noncaptured section (=begin) */ trailer, /*captured section start (=end)*/ oneMatch[0].first));
 
-        // insert full match at position 0
-        ssub_match m0 = oneMatch[0];
-        map<string, range> oneMatchResult;
-        auto q = oneMatchResult.insert({string("all"), range(start, m0.first, m0.second)});
-        assert(q.second);
+        map<string, range> oneMatchResult = smatch2named(oneMatch, start);
+        trailer = oneMatch[0].second;
 
-        trailer = m0.second;
-        for (size_t ixMatch = 0; ixMatch < nMatch; ++ixMatch) {
-            const string& n = captureNames[ixMatch];
-            ssub_match m = oneMatch[ixMatch /*skip full capture*/ + 1];
-            auto r = oneMatchResult.insert({n, range(/*origin*/ start, /*begin*/ m.first, /*end*/ m.second)});
-            assert(/* insertion may never fail (e.g. from duplicate name)*/ r.second);
-        }
         captures.push_back(oneMatchResult);
         ++it;
     }
     nonMatch.push_back(range(start, trailer, text.cend()));
     assert(nonMatch.size() == captures.size() + 1);  // unmatched|match|unmatched|match|...|unmatched
     cout << "iterator done " << endl;
+}
+
+MHPP("public static")
+std::string myRegexBase::namedCaptAsString(const std::string& name, std::map<std::string, myRegexBase::range> capt) {
+    auto it = capt.find(name);
+    if (it == capt.end())
+        throw runtime_error("regex result does not contain named capture '" + name + "'");
+    return it->second.str();
 }
 
 // ==============================
@@ -183,5 +190,27 @@ MHPP("protected")
 myRegexBase myRegexBase::changeExpr(const ::std::string& newExpr, bool isGroup) const {
     myRegexBase r = myRegexBase(newExpr, isGroup);
     for (auto v : captureNames) r.captureNames.push_back(v);
+    return r;
+}
+
+MHPP("protected")
+std::map<std::string, myRegexBase::range> myRegexBase::smatch2named(const std::smatch& m, const std::string::const_iterator start) {
+    map<string, range> r;
+
+    const size_t nMatch = captureNames.size();
+
+    assert(nMatch + 1 == m.size());
+
+    // insert full match at position 0
+    ssub_match m0 = m[0];
+    auto q = r.insert({string("all"), range(start, m0.first, m0.second)});
+    assert(q.second);
+
+    for (size_t ixMatch = 0; ixMatch < nMatch; ++ixMatch) {
+        const string& n = captureNames[ixMatch];
+        ssub_match ms = m[ixMatch /*skip full capture*/ + 1];
+        auto res = r.insert({n, range(/*origin*/ start, /*begin*/ ms.first, /*end*/ ms.second)});
+        assert(/* insertion may never fail (e.g. from duplicate name)*/ res.second);
+    }
     return r;
 }

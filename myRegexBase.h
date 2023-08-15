@@ -42,16 +42,18 @@ class myRegexBase {
     	myRegexBase  operator+(const myRegexBase& arg) const;
     	myRegexBase  operator|(const myRegexBase& arg) const;
     	::std::string  getExpr() const;
+    	bool  match(const ::std::string& text, ::std::map<::std::string, myRegexBase::range>& captures);
     	void  allMatches(const ::std::string& text, ::std::vector<myRegexBase::range>& nonMatch, ::std::vector<::std::map<::std::string, myRegexBase::range>>& captures);
+    	static std::string  namedCaptAsString(const std::string& name, std::map<std::string, myRegexBase::range> capt);
     protected:
     	myRegexBase(const ::std::string& expr, bool isGroup);
     	myRegexBase  makeGrp() const;
     	static myRegexBase  makeGrp(const myRegexBase& arg);
     	myRegexBase  changeExpr(const ::std::string& newExpr, bool isGroup) const;
-    MHPP("end myRegexBase")
+    	std::map<std::string, myRegexBase::range>  smatch2named(const std::smatch& m, const std::string::const_iterator start);
+    MHPP("end myRegexBase")    
    public:
     operator ::std::regex();
-
    protected:
     // expression in human-readable regex format
     ::std::string expr;

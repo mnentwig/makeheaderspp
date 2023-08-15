@@ -37,15 +37,26 @@ class myAppRegex : public myRegexBase {
                capture("comment", zeroOrMore_greedy(CComment | CppComment)) + wsOpt +
                // return type (optional, free form for templates, may include constexpr, const separated by whitespace)
                capture("returntype", rx(".*?", false)) +
+
                // class name (final :: not captured)
-               oneOrMore_greedy(capture("classname", Cidentifier + zeroOrMore_greedy(doubleColon + Cidentifier))) + doubleColon +
+               // oneOrMore_greedy(capture("classname", Cidentifier + zeroOrMore_greedy(doubleColon + Cidentifier))) + doubleColon +
 
                // method name
-               capture("methodname", zeroOrOne_greedy(txt("~")) + Cidentifier) + wsOpt +
+               // capture("methodname", zeroOrOne_greedy(txt("~")) + Cidentifier) + wsOpt +
+               capture("classmethodname", rx("["
+                                             "_"
+                                             "~"
+                                             ":"
+                                             "a-z"
+                                             "A-Z"
+                                             "0-9"
+                                             "]+",
+                                             false)) +
+
                // arguments list (may not contain a round bracket)
                capture("arglist", openRoundBracket + rx("[^\\)]*", false) + closingRoundBracket) + wsOpt +
                // qualifiers after arg list
-               capture("postArgQual", rx("[a-z\\s]+", false)) + wsOpt +
+               capture("postArg", rx("[^\\{]+", false)) + wsOpt +
                txt("{");
     }
 
@@ -69,6 +80,11 @@ class myAppRegex : public myRegexBase {
             capture("classname2", classname) +
             txt("\")");
 
+        return r;
+    }
+
+    static myAppRegex classMethodname() {
+        myAppRegex r = capture("classname", Cidentifier + zeroOrMore_greedy(doubleColon + Cidentifier)) + doubleColon + capture("methodname", Cidentifier);
         return r;
     }
 };
@@ -191,45 +207,39 @@ class codeGen {
     }
 
     void MHPPMETHOD(const std::map<string, myAppRegex::range> capt) {
-        auto it = capt.find("MHPP_keyword");
-        assert(it != capt.end());
-        string keyword = it->second.str();
+        const string keyword = myAppRegex::namedCaptAsString("MHPP_keyword", capt);
+        const string comment = myAppRegex::namedCaptAsString("comment", capt);
+        const string returntype = myAppRegex::namedCaptAsString("returntype", capt);
+        const string classmethodname = myAppRegex::namedCaptAsString("classmethodname", capt);
+        const string arglist = myAppRegex::namedCaptAsString("arglist", capt);
+        const string postArg = myAppRegex::namedCaptAsString("postArg", capt);
 
-        it = capt.find("comment");
-        assert(it != capt.end());
-        string comment = it->second.str();
+        // parse classname::methodname
+        myAppRegex rcm = myAppRegex::classMethodname();
+        map<string, myAppRegex::range> cm;
+        if (!rcm.match(classmethodname, cm)) {
+            for (auto x : capt) cout << x.first << "\t" << x.second.str() << endl;
+            throw runtime_error("'" + classmethodname + "' is not of the expected format classname::(classname...)::methodname");
+        }
 
-        it = capt.find("returntype");
-        assert(it != capt.end());
-        string returntype = it->second.str();
+        const string classname = myAppRegex::namedCaptAsString("classname", cm);
+        const string methodname = myAppRegex::namedCaptAsString("methodname", cm);
 
-        it = capt.find("classname");
-        assert(it != capt.end());
-        string classname = it->second.str();
-
-        it = capt.find("methodname");
-        assert(it != capt.end());
-        string methodname = it->second.str();
-
-        it = capt.find("arglist");
-        assert(it != capt.end());
-        string arglist = it->second.str();
-
-        it = capt.find("postArgQual");
-        assert(it != capt.end());
-        string postArgQual = it->second.str();
-
+        // build output line
         string destText;
         if (keyword.find("virtual") != string::npos)
             destText += "virtual ";
         if (keyword.find("static") != string::npos)
             destText += "static ";
 
-        destText += returntype + string((returntype.size() > 0) ? " " : "");
+        destText += returntype; // includes separating whitespace + string((returntype.size() > 0) ? " " : "");
         destText += methodname;
         destText += arglist;
-        destText += string(postArgQual.size() > 0 ? " " : "");
-        destText += postArgQual;
+        if (postArg.find("const") != string::npos)
+            destText += " const";
+        if (postArg.find("noexcept") != string::npos)
+            destText += " noexcept";
+
         destText += ";";
         auto itc = classesByName.find(classname);
         if (itc == classesByName.end()) {
