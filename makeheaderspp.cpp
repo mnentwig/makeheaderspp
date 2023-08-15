@@ -193,7 +193,7 @@ class codeGen {
         assert(unmatched.size() == nCapt + 1);  // implies > 0
         string res;
         for (size_t ixMatch = 0; ixMatch < nCapt; ++ixMatch) {
-            res += unmatched[0];
+            res += unmatched[ixMatch];
             res += AHBEGIN(captures[ixMatch]);
         }
         res += unmatched[nCapt];
