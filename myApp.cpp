@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "myRegexBase.h"
-using std::cout, std::endl, std::string, std::runtime_error, std::vector, std::set, std::map;
+using std::cout, std::endl, std::string, std::runtime_error, std::vector, std::set, std::map, std::cout;
 // =========================
 // === myAppRegex public ===
 // =========================
@@ -170,7 +170,7 @@ class oneClass {
 
 class codeGen {
    public:
-    codeGen() {}
+    codeGen(bool annotate) : annotate(annotate) {}
     void pass1(const string& fname) {
         // === read file contents ===
         string all = readFile(fname);
@@ -184,7 +184,7 @@ class codeGen {
         std::vector<std::map<string, myAppRegex::range>> capt;
         rx.allMatches(all, nonCapt, capt);
         for (const auto& a : capt)
-            MHPP_classitem(a);
+            MHPP_classitem(a, fname);
     }
 
     void pass2(const string& fname) {
@@ -243,7 +243,7 @@ class codeGen {
         return string(r.first, r.second);
     }
 
-    void MHPP_classfun(const std::map<string, myAppRegex::range> capt) {
+    void MHPP_classfun(const std::map<string, myAppRegex::range> capt, const string& fnameForAnnot) {
         const myAppRegex::range all = myAppRegex::namedCaptAsRange("all", capt);
         const string keyword = myAppRegex::namedCaptAsString("fun_MHPP_keyword", capt);
         const string comment = myAppRegex::namedCaptAsString("fun_comment", capt);
@@ -266,9 +266,8 @@ class codeGen {
 
         // build output line
         string destText;
-        if (true) {
-            destText += "/* " + all.getLcAnnotString() + " */"; // note: result must be single-line for indent to work
-        }
+        if (annotate)
+            destText += "/* " + fnameForAnnot + " " + all.getLcAnnotString() + " */";  // note: result must be single-line for indent to work
         destText += comment;
         if (keyword.find("virtual") != string::npos)
             destText += "virtual ";
@@ -299,7 +298,9 @@ class codeGen {
 
         cout << destText << endl;
     }
-    void MHPP_classvar(const std::map<string, myAppRegex::range> capt) {
+
+    void MHPP_classvar(const std::map<string, myAppRegex::range> capt, const string& fnameForAnnot) {
+        const myAppRegex::range all = myAppRegex::namedCaptAsRange("all", capt);
         const string keyword = myAppRegex::namedCaptAsString("var_MHPP_keyword", capt);
         const string comment = myAppRegex::namedCaptAsString("var_comment", capt);
         const string returntype = myAppRegex::namedCaptAsString("var_returntype", capt);
@@ -319,6 +320,9 @@ class codeGen {
 
         // build output line
         string destText;
+        if (annotate)
+            destText += "/* " + fnameForAnnot + " " + all.getLcAnnotString() + " */";  // note: result must be single-line for indent to work
+
         if (keyword.find("static") == string::npos)
             throw runtime_error("var " + varname + " must be static");
         destText += "static ";
@@ -343,15 +347,15 @@ class codeGen {
         cout << destText << endl;
     }
 
-    void MHPP_classitem(const std::map<string, myAppRegex::range> capt) {
+    void MHPP_classitem(const std::map<string, myAppRegex::range> capt, const string& fnameForErrMsg) {
         const string fun_keyword = myAppRegex::namedCaptAsString("fun_MHPP_keyword", capt);
         const string var_keyword = myAppRegex::namedCaptAsString("var_MHPP_keyword", capt);
         bool isFun = fun_keyword.size() > 0;
         bool isVar = var_keyword.size() > 0;
         if (isFun && !isVar)
-            MHPP_classfun(capt);
+            MHPP_classfun(capt, fnameForErrMsg);
         else if (!isFun && isVar)
-            MHPP_classvar(capt);
+            MHPP_classvar(capt, fnameForErrMsg);
         else
             throw runtime_error("?? neither var nor fun (or both) ??");
     }
@@ -411,20 +415,34 @@ class codeGen {
     map<string, bool> classDone;
     map<string, string> filebodyByFilename;
     set<string> filesNeedRewrite;
+    bool annotate;
 };
 
 int main(int argc, const char** argv) {
     // === copy command line args as filenames ===
     vector<string> filenames;
     set<string> uniqueFilenames;
-    for (size_t ix = 1; ix < (size_t)argc; ++ix) {
-        const string f = argv[ix];
-        filenames.push_back(f);
-        if (!uniqueFilenames.insert(f).second)
-            throw runtime_error("duplicate filename: '" + f + "'");
+    bool annotate = false;
+
+    if (argc <= 1) {
+        cout << "usage: " << argv[0] <<  //
+            " myfile1.cpp myfile2.h ...\n"
+            "-annotate: add comment with declaration file and line\n";
+        exit(0);
     }
 
-    codeGen cg;
+    for (size_t ix = 1; ix < (size_t)argc; ++ix) {
+        const string f = argv[ix];
+        if (f == "-annotate")
+            annotate = true;
+        else {
+            filenames.push_back(f);
+            if (!uniqueFilenames.insert(f).second)
+                throw runtime_error("duplicate filename: '" + f + "'");
+        }
+    }
+
+    codeGen cg(annotate);
     for (const string& filename : filenames)
         cg.pass1(filename);
     for (const string& filename : filenames)
