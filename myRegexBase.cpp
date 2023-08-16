@@ -162,10 +162,16 @@ void myRegexBase::allMatches(const ::std::string& text, ::std::vector<myRegexBas
 
 MHPP("public static")
 std::string myRegexBase::namedCaptAsString(const std::string& name, std::map<std::string, myRegexBase::range> capt) {
+    const myRegexBase::range r = namedCaptAsRange(name, capt);
+    return r.str();
+}
+
+MHPP("public static")
+myRegexBase::range myRegexBase::namedCaptAsRange(const std::string& name, std::map<std::string, myRegexBase::range> capt) {
     auto it = capt.find(name);
     if (it == capt.end())
         throw runtime_error("regex result does not contain named capture '" + name + "'");
-    return it->second.str();
+    return it->second;
 }
 
 MHPP("public static")
@@ -216,4 +222,4 @@ std::map<std::string, myRegexBase::range> myRegexBase::smatch2named(const std::s
 }
 
 MHPP("public static")
-std::string myRegexBase::test=std::string("test");
+std::string myRegexBase::test = std::string("test");

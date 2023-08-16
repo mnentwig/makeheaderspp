@@ -17,10 +17,41 @@ class myRegexBase {
         ::std::string::const_iterator begin() const { return ibegin; }
         // end of range in a string beginning at start()
         ::std::string::const_iterator end() const { return iend; }
-        ::std::string str() const{
+        ::std::string str() const {
             return ::std::string(ibegin, iend);
         }
+        void getBeginLineCharBase1(size_t& ixLineBase1, size_t& ixCharBase1) const {
+            getLineCharBase1(ibegin, ixLineBase1, ixCharBase1);
+        }
+        void getEndLineCharBase1(size_t& ixLineBase1, size_t& ixCharBase1) const {
+            getLineCharBase1(iend, ixLineBase1, ixCharBase1);
+        }
+        ::std::string getLcAnnotString() const {
+            size_t ixLineBase1;
+            size_t ixCharBase1;
+            std::string dest;
+            getBeginLineCharBase1(ixLineBase1, ixCharBase1);
+            dest += "l" + std::to_string(ixLineBase1) + "c" + std::to_string(ixCharBase1);
+            dest += "..";
+            getEndLineCharBase1(ixLineBase1, ixCharBase1);
+            dest += "l" + std::to_string(ixLineBase1) + "c" + std::to_string(ixCharBase1);
+            return dest;
+        }
+
        protected:
+        void getLineCharBase1(::std::string::const_iterator itDest, size_t& ixLineBase1, size_t& ixCharBase1) const {
+            ixLineBase1 = 1;
+            ixCharBase1 = 1;
+            ::std::string::const_iterator it = istart;
+            while (it != itDest) {
+                char c = *(it++);
+                if (c == '\n') {
+                    ++ixLineBase1;
+                    ixCharBase1 = 1;
+                }
+            }
+        }
+
         ::std::string::const_iterator istart;
         ::std::string::const_iterator ibegin;
         ::std::string::const_iterator iend;
@@ -45,16 +76,18 @@ class myRegexBase {
     	bool  match(const ::std::string& text, ::std::map<::std::string, myRegexBase::range>& captures);
     	void  allMatches(const ::std::string& text, ::std::vector<myRegexBase::range>& nonMatch, ::std::vector<::std::map<::std::string, myRegexBase::range>>& captures);
     	static std::string  namedCaptAsString(const std::string& name, std::map<std::string, myRegexBase::range> capt);
+    	static myRegexBase::range  namedCaptAsRange(const std::string& name, std::map<std::string, myRegexBase::range> capt);
     	static myRegexBase  makeGrp(const myRegexBase& arg);
     	myRegexBase  makeGrp() const;
     protected:
     	myRegexBase(const ::std::string& expr, bool isGroup);
     	myRegexBase  changeExpr(const ::std::string& newExpr, bool isGroup) const;
     	std::map<std::string, myRegexBase::range>  smatch2named(const std::smatch& m, const std::string::const_iterator start);
-    MHPP("end myRegexBase")    
+    MHPP("end myRegexBase")
    public:
-   static std::string test;
+    static std::string test;
     operator ::std::regex();
+
    protected:
     // expression in human-readable regex format
     ::std::string expr;

@@ -198,7 +198,7 @@ class codeGen {
         std::vector<std::map<string, myAppRegex::range>> capt;
         rx.allMatches(all, nonCapt, capt);
 
-        // === replace AHBEGIN(classname)...AHEND with respective classname's declarations ===
+        // === replace old file content between MHPP("begin classname")...MHPP("end classname") with respective classname's declarations ===
         const size_t nCapt = capt.size();
         if (nCapt == 0)
             return;
@@ -206,7 +206,7 @@ class codeGen {
         string res;
         for (size_t ixMatch = 0; ixMatch < nCapt; ++ixMatch) {
             res += nonCapt[ixMatch].str();
-            res += AHBEGIN(capt[ixMatch]);
+            res += MHPP_begin(capt[ixMatch]);
         }
         res += nonCapt[nCapt].str();
 
@@ -244,6 +244,7 @@ class codeGen {
     }
 
     void MHPP_classfun(const std::map<string, myAppRegex::range> capt) {
+        const myAppRegex::range all = myAppRegex::namedCaptAsRange("all", capt);
         const string keyword = myAppRegex::namedCaptAsString("fun_MHPP_keyword", capt);
         const string comment = myAppRegex::namedCaptAsString("fun_comment", capt);
         const string returntype = myAppRegex::namedCaptAsString("fun_returntype", capt);
@@ -265,12 +266,16 @@ class codeGen {
 
         // build output line
         string destText;
+        if (true) {
+            destText += "/* " + all.getLcAnnotString() + " */"; // note: result must be single-line for indent to work
+        }
+        destText += comment;
         if (keyword.find("virtual") != string::npos)
             destText += "virtual ";
         if (keyword.find("static") != string::npos)
             destText += "static ";
 
-        destText += returntype;  // includes separating whitespace + string((returntype.size() > 0) ? " " : "");
+        destText += returntype;  // includes separating whitespace
         destText += methodname;
         destText += arglist;
         if (postArg.find("const") != string::npos)
@@ -285,7 +290,7 @@ class codeGen {
             auto r = classesByName.insert({classname, oneClass()});
             itc = r.first;
             assert(r.second);
-            // === flag as class that is waiting for an AHBEGIN(classname)...AHEND section ===
+            // === flag as class that is waiting to be collected by an MHPP("begin classname")... MHPP("end classname") section ===
             auto r2 = classDone.insert({classname, false});
             assert(r2.second);
         }
@@ -351,7 +356,7 @@ class codeGen {
             throw runtime_error("?? neither var nor fun (or both) ??");
     }
 
-    string AHBEGIN(const std::map<string, myAppRegex::range> capt) {
+    string MHPP_begin(const std::map<string, myAppRegex::range> capt) {
         auto it = capt.find("indent");
         assert(it != capt.end());
         string indent = it->second.str();
