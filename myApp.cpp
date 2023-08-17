@@ -38,11 +38,7 @@ class myAppRegex : public myRegexBase {
                // return type (optional, free form for templates, may include constexpr, const separated by whitespace)
                capture("fun_returntype", rx(".*?", false)) +
 
-               // class name (final :: not captured)
-               // oneOrMore_greedy(capture("classname", Cidentifier + zeroOrMore_greedy(doubleColon + Cidentifier))) + doubleColon +
-
                // method name
-               // capture("methodname", zeroOrOne_greedy(txt("~")) + Cidentifier) + wsOpt +
                capture("fun_classmethodname", rx("["
                                                  "_"
                                                  "~"
@@ -109,7 +105,7 @@ class myAppRegex : public myRegexBase {
     }
 
     static myAppRegex classMethodname() {
-        myAppRegex r = capture("classname", Cidentifier + zeroOrMore_greedy(doubleColon + Cidentifier)) + doubleColon + capture("methodname", Cidentifier);
+        myAppRegex r = capture("classname", Cidentifier + zeroOrMore_greedy(doubleColon + Cidentifier)) + doubleColon + capture("methodname", zeroOrOne_greedy(txt("~")) + Cidentifier);
         return r;
     }
 };

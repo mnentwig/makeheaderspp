@@ -128,10 +128,10 @@ void myRegexBase::allMatches(const ::std::string& text, ::std::vector<myRegexBas
     assert(0 == nonMatch.size());
     assert(0 == captures.size());
     const ::std::regex r = *this;
-    cout << "REGEX: " << getExpr() << endl;
+    // cout << "REGEX: " << getExpr() << endl;
     const string::const_iterator start = text.cbegin();
     std::sregex_iterator it(text.cbegin(), text.cend(), r);
-    cout << "got iterator " << endl;
+    // cout << "got iterator " << endl; // this part can be slow
     std::sregex_iterator itEnd;
     auto trailer = text.cbegin();
     while (it != itEnd) {
@@ -157,7 +157,7 @@ void myRegexBase::allMatches(const ::std::string& text, ::std::vector<myRegexBas
     }
     nonMatch.push_back(range(start, trailer, text.cend()));
     assert(nonMatch.size() == captures.size() + 1);  // unmatched|match|unmatched|match|...|unmatched
-    cout << "iterator done " << endl;
+    // cout << "iterator done " << endl;
 }
 
 MHPP("public static")
