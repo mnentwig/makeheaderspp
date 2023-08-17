@@ -74,12 +74,10 @@ class myAppRegex : public myRegexBase {
                           "0-9"
                           "]+",
                           false)) +
-
-               rx("\\s*"
-                  "="
-                  ".*"
-                  ";",
-                  false);
+               wsOpt + zeroOrOne_greedy(rx("="
+                                           ".*",
+                                           false)) +
+               txt(";");
     }
 
     static myAppRegex MHPP_begin() {
