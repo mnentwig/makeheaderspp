@@ -65,14 +65,15 @@ class myAppRegex : public myRegexBase {
                capture("var_returntype", rx(".*?", false)) +
 
                // name
-               capture("var_classvarname", rx("["
-                                              "_"
-                                              ":"
-                                              "a-z"
-                                              "A-Z"
-                                              "0-9"
-                                              "]+",
-                                              false)) +
+               capture("var_classvarname",
+                       rx("["
+                          "_"
+                          ":"
+                          "a-z"
+                          "A-Z"
+                          "0-9"
+                          "]+",
+                          false)) +
 
                rx("\\s*"
                   "="
@@ -132,24 +133,21 @@ string readFile(const string& fname) {
 class oneClass {
    public:
     oneClass() : publicText(), protectedText(), privateText() {}
-    void addPublicText(const string& text) { publicText.push_back(text); }
-    void addProtectedText(const string& text) { protectedText.push_back(text); }
-    void addPrivateText(const string& text) { privateText.push_back(text); }
     const string getPublicText(const string& indent) const { return indentStringVec(publicText, indent); }
     const string getProtectedText(const string& indent) const { return indentStringVec(protectedText, indent); }
     const string getPrivateText(const string& indent) const { return indentStringVec(privateText, indent); }
-    void addTextByKeyword(const string& keyword, const string& text, const string& errorObjName) {
+    void addTextByKeyword(const string& keyword, const vector<string>& text, const string& errorObjName) {
         size_t isPublic = keyword.find("public") != string::npos ? 1 : 0;
         size_t isProtected = keyword.find("protected") != string::npos ? 1 : 0;
         size_t isPrivate = keyword.find("private") != string::npos ? 1 : 0;
         if (isPublic + isProtected + isPrivate < 1) throw runtime_error(errorObjName + " needs AH: public|private|protected (got '" + keyword + "')");
         if (isPublic + isProtected + isPrivate > 1) throw runtime_error(errorObjName + " has more than one choice of AH: public|private|protected (got '" + keyword + "')");
         if (isPublic)
-            addPublicText(text);
+            publicText.insert(publicText.end(), text.cbegin(), text.cend());
         if (isProtected)
-            addProtectedText(text);
+            protectedText.insert(protectedText.end(), text.cbegin(), text.cend());
         if (isPrivate)
-            addPrivateText(text);
+            privateText.insert(privateText.end(), text.cbegin(), text.cend());
     }
 
    protected:
@@ -242,10 +240,34 @@ class codeGen {
         return string(r.first, r.second);
     }
 
+    oneClass& getClass(const string& classname) {
+        auto itc = classesByName.find(classname);
+        if (itc == classesByName.end()) {
+            // === create new oneClass for classnames ===
+            auto r = classesByName.insert({classname, oneClass()});
+            itc = r.first;
+            assert(r.second);
+            // === flag as class that is waiting to be collected by an MHPP("begin classname")... MHPP("end classname") section ===
+            auto r2 = classDone.insert({classname, false});
+            assert(r2.second);
+        }
+        return itc->second;
+    }
+
+    static string trimNewline(string& text) {
+        while (true) {
+            if (text.size() == 0) break;
+            char lastChar = text[text.size() - 1];
+            if ((lastChar != '\n') && (lastChar != '\r')) break;
+            text = text.substr(0, text.size() - 1);
+        }
+        return text;
+    }
+
     void MHPP_classfun(const std::map<string, myAppRegex::range> capt, const string& fnameForAnnot) {
         const myAppRegex::range all = myAppRegex::namedCaptAsRange("all", capt);
         const string keyword = myAppRegex::namedCaptAsString("fun_MHPP_keyword", capt);
-        const string comment = myAppRegex::namedCaptAsString("fun_comment", capt);
+        string comment = myAppRegex::namedCaptAsString("fun_comment", capt);
         const string returntype = myAppRegex::namedCaptAsString("fun_returntype", capt);
         const string classmethodname = myAppRegex::namedCaptAsString("fun_classmethodname", capt);
         const string arglist = myAppRegex::namedCaptAsString("fun_arglist", capt);
@@ -264,42 +286,37 @@ class codeGen {
         const string methodname = myAppRegex::namedCaptAsString("methodname", cm);
 
         // build output line
-        string destText;
+        vector<string> destText;
         if (annotate)
-            destText += "/* " + fnameForAnnot + " " + all.getLcAnnotString() + " */";  // note: result must be single-line for indent to work
-        destText += comment;
+            destText.push_back("/* " + fnameForAnnot + " " + all.getLcAnnotString() + " */");
+
+        comment = trimNewline(comment);  // newline is required terminator for multiple comments. Remove last newline only here.
+        if (comment.size() > 0)
+            destText.push_back(comment);
+        string line;
         if (keyword.find("virtual") != string::npos)
-            destText += "virtual ";
+            line += "virtual ";
         if (keyword.find("static") != string::npos)
-            destText += "static ";
+            line += "static ";
 
-        destText += returntype;  // includes separating whitespace
-        destText += methodname;
-        destText += arglist;
+        line += returntype;  // includes separating whitespace
+        line += methodname;
+        line += arglist;
         if (postArg.find("const") != string::npos)
-            destText += " const";
+            line += " const";
         if (postArg.find("noexcept") != string::npos)
-            destText += " noexcept";
+            line += " noexcept";
 
-        destText += ";";
-        auto itc = classesByName.find(classname);
-        if (itc == classesByName.end()) {
-            // === create new oneClass for classnames ===
-            auto r = classesByName.insert({classname, oneClass()});
-            itc = r.first;
-            assert(r.second);
-            // === flag as class that is waiting to be collected by an MHPP("begin classname")... MHPP("end classname") section ===
-            auto r2 = classDone.insert({classname, false});
-            assert(r2.second);
-        }
-        oneClass& c = itc->second;
+        line += ";";
+        destText.push_back(line);
+        oneClass& c = getClass(classname);
         c.addTextByKeyword(keyword, destText, /*for error message*/ classmethodname);
     }
 
     void MHPP_classvar(const std::map<string, myAppRegex::range> capt, const string& fnameForAnnot) {
         const myAppRegex::range all = myAppRegex::namedCaptAsRange("all", capt);
         const string keyword = myAppRegex::namedCaptAsString("var_MHPP_keyword", capt);
-        const string comment = myAppRegex::namedCaptAsString("var_comment", capt);
+        string comment = myAppRegex::namedCaptAsString("var_comment", capt);
         const string returntype = myAppRegex::namedCaptAsString("var_returntype", capt);
         const string classvarname = myAppRegex::namedCaptAsString("var_classvarname", capt);
         assert(keyword.size() > 0);
@@ -316,30 +333,24 @@ class codeGen {
         const string varname = myAppRegex::namedCaptAsString("methodname", cm);
 
         // build output line
-        string destText;
+        vector<string> destText;
         if (annotate)
-            destText += "/* " + fnameForAnnot + " " + all.getLcAnnotString() + " */";  // note: result must be single-line for indent to work
+            destText.push_back("/* " + fnameForAnnot + " " + all.getLcAnnotString() + " */");
+        comment = trimNewline(comment);  // newline is required terminator for multiple comments. Remove last newline only here.
+        if (comment.size() > 0)
+            destText.push_back(comment);
 
         if (keyword.find("static") == string::npos)
             throw runtime_error("var " + varname + " must be static");
-        destText += "static ";
+        string line;
+        line += "static ";
 
-        destText += returntype;  // includes separating whitespace
-        destText += varname;
+        line += returntype;  // includes separating whitespace
+        line += varname;
+        line += ";";
+        destText.push_back(line);
 
-        destText += ";";
-        auto itc = classesByName.find(classname);
-        if (itc == classesByName.end()) {
-            // === create new oneClass for classnames ===
-            auto r = classesByName.insert({classname, oneClass()});
-            itc = r.first;
-            assert(r.second);
-            // === flag as class that is waiting for an AHBEGIN(classname)...AHEND section ===
-            auto r2 = classDone.insert({classname, false});
-            assert(r2.second);
-        }
-
-        oneClass& c = itc->second;
+        oneClass& c = getClass(classname);
         c.addTextByKeyword(keyword, destText, classvarname);
     }
 
