@@ -2,7 +2,7 @@ CXXFLAGS := -O -static -std=c++17 -Wall -Wextra -pedantic -D_GLIBCXX_DEBUG
 #-DNDEBUG
 all: makeheaderspp.exe
 makeheaderspp.exe: makeheaderspp.cpp myRegexBase.cpp myRegexBase.h
-	g++ -o $@ makeheaderspp.cpp ${CXXFLAGS}
+	g++ -o $@ makeheaderspp.cpp myRegexBase.cpp ${CXXFLAGS}
 
 # run own code generation (no need if building makeheaderspp.exe - run only after editing the respective classes)
 gen: makeheaderspp.exe
@@ -15,6 +15,7 @@ test: makeheaderspp.exe
 	g++ ${CXXFLAGS} -o test.exe test.cpp
 # runtime checks
 	./test.exe
+	@echo "test passed!"
 
 clean: 
 	rm -f makeheaderspp.exe test.exe
