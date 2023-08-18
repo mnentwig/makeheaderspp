@@ -86,6 +86,10 @@ The following types of class methods are supported:
 * const
 * noexcept
 
+### Templates (function / variable arguments, static variables)
+Templates usually do work, also using whitespaces (e.g. after comma: `map<string, int>)`as long as they don't make use of round or curly brackets (which is unusual e.g. in a string argument).
+
+
 ### Comments
 Comments (single- or multiline) between `MHPP("begin classname")` and the definition will carry over to the declaration.
 
