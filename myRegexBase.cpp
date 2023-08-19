@@ -83,7 +83,7 @@ MHPP("public")
     throw runtime_error("Named match '" + name + "' not found");
 }
 
-//M HPP("public")
+// M HPP("public")
 myRegexBase myRegexBase::operator+(const myRegexBase& arg) const {
     const myRegexBase& a = *this;
     myRegexBase b = arg;
@@ -93,7 +93,7 @@ myRegexBase myRegexBase::operator+(const myRegexBase& arg) const {
     return r;
 }
 
-//M HPP("public")
+// M HPP("public")
 myRegexBase myRegexBase::operator|(const myRegexBase& arg) const {
     myRegexBase a = this->makeGrp();
     myRegexBase b = arg.makeGrp();
