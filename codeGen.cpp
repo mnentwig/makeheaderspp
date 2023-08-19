@@ -74,15 +74,15 @@ void codeGen::pass3(const std::string& fname) {
 MHPP("public")
 // called on declaration regex capture declaration
 void codeGen::MHPP_classitem(const std::map<std::string, myAppRegex::range> capt, const std::string& fnameForErrMsg) {
-#if false
-    cout << "=== classitem ===" << endl;
-    for (auto x : capt) cout << x.first << "\t>>>" << x.second.str() << "<<<" << endl;
-#endif
     const string leadingComment = myAppRegex::namedCaptAsString("leadingComment", capt);
     bool isComment = leadingComment.size() > 0;
-    if (isComment){
+    if (isComment) {
         return;
     }
+#if true
+    cout << "=== non-comment classitem ===" << endl;
+    for (auto x : capt) cout << x.first << "\t>>>" << x.second.str() << "<<<" << endl;
+#endif
 
     const string fun_keyword = myAppRegex::namedCaptAsString("fun_MHPP_keyword", capt);
     const string var_keyword = myAppRegex::namedCaptAsString("var_MHPP_keyword", capt);
@@ -212,7 +212,8 @@ void codeGen::MHPP_classfun(const std::map<std::string, myAppRegex::range> capt,
     if (keyword.find("static") != string::npos)
         line += "static ";
 
-    line += returntype;  // includes separating whitespace
+    if (returntype.size() > 0)
+        line += returntype + " ";
     line += methodname;
     line += arglist;
     if (postArg.find("const") != string::npos)

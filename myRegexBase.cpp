@@ -23,54 +23,67 @@ myRegexBase myRegexBase::txt(const ::std::string& text) {
             out.push_back('\\');
         out.push_back(ch);
     }
-    return myRegexBase(out, /*isGroup*/ false);
+    return myRegexBase(out, prio_e::PRIO_CONCAT);
 }
 
 MHPP("public static")
-myRegexBase myRegexBase::rx(const ::std::string& re, bool isGroup) {  // TODO strip default arguments
-    return myRegexBase(re, isGroup);
+// create arbitrary regex. Most generic variant, assumes reuse needs to wrap in (?: ...)
+myRegexBase myRegexBase::rx(const ::std::string& re) {  // TODO strip default arguments
+    return myRegexBase(re, prio_e::PRIO_UNKNOWN);
 }
 
 MHPP("public static")
-myRegexBase myRegexBase::zeroOrMore_greedy(const myRegexBase& arg) {
+// create regex, special case for an alternation e.g. one|two|three at toplevel
+myRegexBase myRegexBase::rx_alt(const ::std::string& re) {
+    return myRegexBase(re, prio_e::PRIO_OR);
+}
+
+MHPP("public static")
+// create regex, special case for a group e.g. (...), (?:...) at toplevel
+myRegexBase myRegexBase::rx_grp(const ::std::string& re) {
+    return myRegexBase(re, prio_e::PRIO_GRP);
+}
+
+MHPP("public static")
+myRegexBase myRegexBase::zeroOrMore(const myRegexBase& arg) {
     myRegexBase r = arg.makeGrp();
-    return r.changeExpr(r.expr + "*", /*isGroup*/ false);
+    return r.changeExpr(r.expr + "*", prio_e::PRIO_REP);
 }
 
 MHPP("public static")
 myRegexBase myRegexBase::zeroOrMore_lazy(const myRegexBase& arg) {
     myRegexBase r = arg.makeGrp();
-    return r.changeExpr(r.expr + "*?", /*isGroup*/ false);
+    return r.changeExpr(r.expr + "*?", prio_e::PRIO_REP);
 }
 
 MHPP("public static")
-myRegexBase myRegexBase::oneOrMore_greedy(const myRegexBase& arg) {
+myRegexBase myRegexBase::oneOrMore(const myRegexBase& arg) {
     myRegexBase r = arg.makeGrp();
-    return r.changeExpr(r.expr + "+", /*isGroup*/ false);
+    return r.changeExpr(r.expr + "+", prio_e::PRIO_REP);
 }
 
 MHPP("public static")
 myRegexBase myRegexBase::oneOrMore_lazy(const myRegexBase& arg) {
     myRegexBase r = arg.makeGrp();
-    return r.changeExpr(r.expr + "+?", /*isGroup*/ false);
+    return r.changeExpr(r.expr + "+?", prio_e::PRIO_REP);
 }
 
 MHPP("public static")
-myRegexBase myRegexBase::zeroOrOne_greedy(const myRegexBase& arg) {
+myRegexBase myRegexBase::zeroOrOne(const myRegexBase& arg) {
     myRegexBase r = arg.makeGrp();
-    return r.changeExpr(r.expr + "?", /*isGroup*/ false);
+    return r.changeExpr(r.expr + "?", prio_e::PRIO_REP);
 }
 
 MHPP("public static")
 myRegexBase myRegexBase::zeroOrOne_lazy(const myRegexBase& arg) {
     myRegexBase r = arg.makeGrp();
-    return r.changeExpr(r.expr + "??", /*isGroup*/ false);
+    return r.changeExpr(r.expr + "??", prio_e::PRIO_REP);
 }
 
 MHPP("public static")
 myRegexBase myRegexBase::capture(const ::std::string& captName, const myRegexBase& arg) {
-    myRegexBase r = arg.changeExpr("(" + arg.expr + ")", true);
-    r.captureNames.insert(r.captureNames.begin(), captName);
+    myRegexBase r = arg.changeExpr("(" + arg.expr + ")", prio_e::PRIO_GRP);
+    r.captureNames.insert(r.captureNames.begin(), captName);  // insert at head as we're wrapping the expression
     return r;
 }
 
@@ -84,26 +97,28 @@ MHPP("public")
     throw runtime_error("Named match '" + name + "' not found");
 }
 
-// M HPP("public")
+//MHPP("public") // TODO support
 myRegexBase myRegexBase::operator+(const myRegexBase& arg) const {
-    const myRegexBase& a = *this;
-    myRegexBase b = arg;
-    myRegexBase r = myRegexBase(a.expr + b.expr, false);
+    myRegexBase a = (prio >= prio_e::PRIO_CONCAT) ? *this : makeGrp();
+    myRegexBase b = (arg.prio >= prio_e::PRIO_CONCAT) ? arg : arg.makeGrp();
+    myRegexBase r = myRegexBase(a.expr + b.expr, prio_e::PRIO_CONCAT);
     for (auto v : a.captureNames) r.captureNames.push_back(v);
     for (auto v : b.captureNames) r.captureNames.push_back(v);
     return r;
 }
 
-// M HPP("public")
+// M HPP("public") // TODO support
 myRegexBase myRegexBase::operator|(const myRegexBase& arg) const {
-    myRegexBase a = this->makeGrp();
-    myRegexBase b = arg.makeGrp();
-    myRegexBase r = myRegexBase(a.expr + "|" + b.expr, false);
+    // special case: if an argument is an alternation at toplevel, it can be appended without need for grouping
+    myRegexBase a = (prio == prio_e::PRIO_OR) ? *this : makeGrp();
+    myRegexBase b = (arg.prio == prio_e::PRIO_OR) ? arg : arg.makeGrp();
+    myRegexBase r = myRegexBase(a.expr + "|" + b.expr, prio_e::PRIO_OR);
     for (auto v : a.captureNames) r.captureNames.push_back(v);
     for (auto v : b.captureNames) r.captureNames.push_back(v);
     return r;
 }
 
+// converts to STL regex
 myRegexBase::operator ::std::regex() {  // FIXME support this
     const set<string> captNamesUnique(captureNames.begin(), captureNames.end());
     assert(captNamesUnique.size() == captureNames.size() && "duplicate capture names");
@@ -111,11 +126,13 @@ myRegexBase::operator ::std::regex() {  // FIXME support this
 }
 
 MHPP("public")
+// returns content as regex string
 ::std::string myRegexBase::getExpr() const {
     return expr;
 }
 
 MHPP("public")
+// applies std::regex_match and returns captures by name. Failure to match returns false.
 bool myRegexBase::match(const ::std::string& text, ::std::map<::std::string, myRegexBase::range>& captures) {
     std::smatch m;
     if (!std::regex_match(text, m, (std::regex) * this))
@@ -177,30 +194,31 @@ myRegexBase::range myRegexBase::namedCaptAsRange(const std::string& name, std::m
 
 MHPP("public static")
 myRegexBase myRegexBase::makeGrp(const myRegexBase& arg) {
-    if (arg.isGroup) return arg;
-    return arg.changeExpr("(?:" + arg.expr + ")", true);
+    return arg.makeGrp();
 }
 
 MHPP("public")
 myRegexBase myRegexBase::makeGrp() const {
-    if (this->isGroup) return *this;
-    return changeExpr("(?:" + expr + ")", true);
+    if (prio >= prio_e::PRIO_GRP) return *this;
+    return changeExpr("(?:" + expr + ")", prio_e::PRIO_GRP);
 }
 
 // ==============================
 // === myRegexBase non-public ===
 // ==============================
 MHPP("protected")
-myRegexBase::myRegexBase(const ::std::string& expr, bool isGroup) : expr(expr), isGroup(isGroup) {}
+myRegexBase::myRegexBase(const ::std::string& expr, prio_e prio) : expr(expr), prio(prio) {}
 
 MHPP("protected")
-myRegexBase myRegexBase::changeExpr(const ::std::string& newExpr, bool isGroup) const {
-    myRegexBase r = myRegexBase(newExpr, isGroup);
+// replaces internal regex, keeps named captures
+myRegexBase myRegexBase::changeExpr(const ::std::string& newExpr, prio_e newPrio) const {
+    myRegexBase r = myRegexBase(newExpr, newPrio);
     for (auto v : captureNames) r.captureNames.push_back(v);
     return r;
 }
 
 MHPP("protected")
+// converts STL regex smatch result to named captures
 std::map<std::string, myRegexBase::range> myRegexBase::smatch2named(const std::smatch& m, const std::string::const_iterator start) {
     map<string, range> r;
 
@@ -221,9 +239,6 @@ std::map<std::string, myRegexBase::range> myRegexBase::smatch2named(const std::s
     }
     return r;
 }
-
-MHPP("public static")
-std::string myRegexBase::test = std::string("test");
 
 // =====================================================
 // myRegexBase::range
@@ -247,18 +262,21 @@ MHPP("public")
 }
 
 MHPP("public")
-void myRegexBase::range::getEndLineCharBase1(size_t& ixLineBase1, size_t& ixCharBase1) const {
-    getLineCharBase1(iend, ixLineBase1, ixCharBase1);
-}
-
-MHPP("public")
+// extracts range into new string
 ::std::string myRegexBase::range::str() const {
     return ::std::string(ibegin, iend);
 }
 
 MHPP("public")
+// gets line and character count relative to beginning of string for start of region
 void myRegexBase::range::getBeginLineCharBase1(size_t& ixLineBase1, size_t& ixCharBase1) const {
     getLineCharBase1(ibegin, ixLineBase1, ixCharBase1);
+}
+
+MHPP("public")
+// gets line and character count relative to beginning of string for end of region
+void myRegexBase::range::getEndLineCharBase1(size_t& ixLineBase1, size_t& ixCharBase1) const {
+    getLineCharBase1(iend, ixLineBase1, ixCharBase1);
 }
 
 MHPP("public")
@@ -274,6 +292,7 @@ MHPP("public")
 ::std::string::const_iterator myRegexBase::range::end() const { return iend; }
 
 MHPP("protected")
+// gets line and character count for a given iterator
 void myRegexBase::range::getLineCharBase1(::std::string::const_iterator itDest, size_t& ixLineBase1, size_t& ixCharBase1) const {
     ixLineBase1 = 1;
     ixCharBase1 = 1;

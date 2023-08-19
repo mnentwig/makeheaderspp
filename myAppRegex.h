@@ -12,8 +12,9 @@ class myAppRegex : public myRegexBase {
     	static myAppRegex MHPP_classvar();
     	static myAppRegex MHPP_begin();
     	static myAppRegex classMethodname();
+    	static myAppRegex CppTemplatedType;
     protected:
-    	static myAppRegex classOp;
+    	static myAppRegex CppOperator;
     	static myAppRegex wsSep;
     	static myAppRegex openRoundBracket;
     	static myAppRegex closingRoundBracket;
@@ -24,6 +25,12 @@ class myAppRegex : public myRegexBase {
     	static myAppRegex CComment;
     	static myAppRegex CppComment;
     	static myAppRegex doubleColon;
+    	static myAppRegex CppIdentifierFirstChar;
+    	static myAppRegex CppTemplatedTypeFirstChar;
+    	static myAppRegex CppTemplatedTypeBodyChar;
+    	static myAppRegex CppTemplatedTypeLastChar;
+    	static myAppRegex CppClassname;
+    	static myAppRegex CppMethodname;
     	static myAppRegex any;
     MHPP("end myAppRegex")
 };

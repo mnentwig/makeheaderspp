@@ -5,10 +5,10 @@ makeheaderspp.exe: makeheaderspp.cpp myRegexBase.cpp myRegexBase.h myAppRegex.cp
 	g++ -o $@ makeheaderspp.cpp myRegexBase.cpp myAppRegex.cpp codeGen.cpp oneClass.cpp ${CXXFLAGS}
 
 # run own code generation (no need if building makeheaderspp.exe - run only after editing the respective classes)
-gen: makeheaderspp.exe
+gen: 
 	./makeheaderspp.exe myRegexBase.* myAppRegex.* oneClass.* codeGen.*
 
-test: makeheaderspp.exe
+test:
 # testcase code generation
 	./makeheaderspp.exe test.cpp
 # compile test case
