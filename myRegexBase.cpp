@@ -83,7 +83,7 @@ MHPP("public")
     throw runtime_error("Named match '" + name + "' not found");
 }
 
-MHPP("public")
+//M HPP("public")
 myRegexBase myRegexBase::operator+(const myRegexBase& arg) const {
     const myRegexBase& a = *this;
     myRegexBase b = arg;
@@ -93,7 +93,7 @@ myRegexBase myRegexBase::operator+(const myRegexBase& arg) const {
     return r;
 }
 
-MHPP("public")
+//M HPP("public")
 myRegexBase myRegexBase::operator|(const myRegexBase& arg) const {
     myRegexBase a = this->makeGrp();
     myRegexBase b = arg.makeGrp();
@@ -224,7 +224,15 @@ std::map<std::string, myRegexBase::range> myRegexBase::smatch2named(const std::s
 MHPP("public static")
 std::string myRegexBase::test = std::string("test");
 
+// =====================================================
+// myRegexBase::range
+// =====================================================
 MHPP("public")
+// construct begin-end range with complete text (e.g. file contents) starting at istart
+myRegexBase::range::range(::std::string::const_iterator istart, ::std::string::const_iterator ibegin, ::std::string::const_iterator iend) : istart(istart), ibegin(ibegin), iend(iend) {}
+
+MHPP("public")
+// e.g. l100c3 for character 3 in line 100 (base 1, e.g. for messages)
 ::std::string myRegexBase::range::getLcAnnotString() const {
     size_t ixLineBase1;
     size_t ixCharBase1;
@@ -235,4 +243,45 @@ MHPP("public")
     getEndLineCharBase1(ixLineBase1, ixCharBase1);
     dest += "l" + std::to_string(ixLineBase1) + "c" + std::to_string(ixCharBase1);
     return dest;
+}
+
+MHPP("public")
+void myRegexBase::range::getEndLineCharBase1(size_t& ixLineBase1, size_t& ixCharBase1) const {
+    getLineCharBase1(iend, ixLineBase1, ixCharBase1);
+}
+
+MHPP("public")
+::std::string myRegexBase::range::str() const {
+    return ::std::string(ibegin, iend);
+}
+
+MHPP("public")
+void myRegexBase::range::getBeginLineCharBase1(size_t& ixLineBase1, size_t& ixCharBase1) const {
+    getLineCharBase1(ibegin, ixLineBase1, ixCharBase1);
+}
+
+MHPP("public")
+// start of string that contains the range (e.g. to report line / character count in error messages)
+::std::string::const_iterator myRegexBase::range::start() const { return istart; }
+
+MHPP("public")
+// start of range in a string beginning at start()
+::std::string::const_iterator myRegexBase::range::begin() const { return ibegin; }
+
+MHPP("public")
+// end of range in a string beginning at start()
+::std::string::const_iterator myRegexBase::range::end() const { return iend; }
+
+MHPP("protected")
+void myRegexBase::range::getLineCharBase1(::std::string::const_iterator itDest, size_t& ixLineBase1, size_t& ixCharBase1) const {
+    ixLineBase1 = 1;
+    ixCharBase1 = 1;
+    ::std::string::const_iterator it = istart;
+    while (it != itDest) {
+        char c = *(it++);
+        if (c == '\n') {
+            ++ixLineBase1;
+            ixCharBase1 = 1;
+        }
+    }
 }
