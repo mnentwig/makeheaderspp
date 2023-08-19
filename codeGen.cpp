@@ -13,7 +13,7 @@ void codeGen::pass1(const std::string& fname, bool clean) {
 
     if (!clean) {
         // === break into nonmatch|match|nonmatch|...|nonmatch stream ===
-        myAppRegex rx = myAppRegex::MHPP_classfun().makeGrp() | myAppRegex::MHPP_classvar().makeGrp();
+        myAppRegex rx = myAppRegex::comment().makeGrp() | myAppRegex::MHPP_classfun().makeGrp() | myAppRegex::MHPP_classvar().makeGrp();
         std::vector<myAppRegex::range> nonCapt;
         std::vector<std::map<string, myAppRegex::range>> capt;
         rx.allMatches(all, nonCapt, capt);
@@ -78,10 +78,17 @@ void codeGen::MHPP_classitem(const std::map<std::string, myAppRegex::range> capt
     cout << "=== classitem ===" << endl;
     for (auto x : capt) cout << x.first << "\t>>>" << x.second.str() << "<<<" << endl;
 #endif
+    const string leadingComment = myAppRegex::namedCaptAsString("leadingComment", capt);
+    bool isComment = leadingComment.size() > 0;
+    if (isComment){
+        return;
+    }
+
     const string fun_keyword = myAppRegex::namedCaptAsString("fun_MHPP_keyword", capt);
     const string var_keyword = myAppRegex::namedCaptAsString("var_MHPP_keyword", capt);
     bool isFun = fun_keyword.size() > 0;
     bool isVar = var_keyword.size() > 0;
+
     if (isFun && !isVar)
         MHPP_classfun(capt, fnameForErrMsg);
     else if (!isFun && isVar)
@@ -140,11 +147,6 @@ void codeGen::checkAllClassesDone() {
     for (auto it : classDone)
         if (!it.second)
             throw runtime_error("no MHPP(\"begin " + it.first + "\") ... MHPP(\"end " + it.first + "\") anywhere in files");
-}
-
-MHPP("protected static")
-std::string codeGen::range2string(const myRegexBase::range_t& r) {
-    return string(r.first, r.second);
 }
 
 MHPP("protected")

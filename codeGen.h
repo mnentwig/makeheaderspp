@@ -21,7 +21,6 @@ class codeGen {
     	std::string MHPP_begin(const std::map<std::string, myAppRegex::range>& capt, bool clean);
     	void checkAllClassesDone();
     protected:
-    	static std::string range2string(const myRegexBase::range_t& r);
     	oneClass& getClass(const std::string& classname);
     	static std::string trimNewline(std::string& text);
     	// called on declaration regex capture that is a function

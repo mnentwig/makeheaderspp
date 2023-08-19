@@ -4,6 +4,11 @@ MHPP("public")
 myAppRegex::myAppRegex(const myRegexBase& arg) : myRegexBase(arg) {}
 
 MHPP("public static")
+myAppRegex myAppRegex::comment() {
+    return capture("leadingComment", oneOrMore_greedy(CComment | CppComment)) + wsOpt;
+}
+
+MHPP("public static")
 myAppRegex myAppRegex::MHPP_classfun() {
     return txt("MHPP(\"") +
            // public or private or protected (all start with "p")
