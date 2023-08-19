@@ -77,6 +77,7 @@ myAppRegex myAppRegex::MHPP_begin() {
 }
 
 MHPP("public static")
+// splits myOuterClass::myInnerClass::myMethod into classname=myOuterClass::myInnerClass and methodname=myMethod
 myAppRegex myAppRegex::classMethodname() {
     myAppRegex r = capture("classname",
                            Cidentifier +
@@ -86,7 +87,6 @@ myAppRegex myAppRegex::classMethodname() {
                            makeGrp(zeroOrOne(txt("~")) +
                                    Cidentifier) |
                                CppOperator);
-    std::cout << r.getExpr() << std::endl;
     return r;
 }
 

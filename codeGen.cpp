@@ -79,7 +79,7 @@ void codeGen::MHPP_classitem(const std::map<std::string, myAppRegex::range> capt
     if (isComment) {
         return;
     }
-#if true
+#if false
     cout << "=== non-comment classitem ===" << endl;
     for (auto x : capt) cout << x.first << "\t>>>" << x.second.str() << "<<<" << endl;
 #endif

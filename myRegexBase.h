@@ -74,6 +74,8 @@ class myRegexBase {
     	static myRegexBase zeroOrOne_lazy(const myRegexBase& arg);
     	static myRegexBase capture(const ::std::string& captName, const myRegexBase& arg);
     	::std::string getNamedCapture(const ::std::string& name, const ::std::smatch& m) const;
+    	myRegexBase operator+(const myRegexBase& arg) const;
+    	myRegexBase operator|(const myRegexBase& arg) const;
     	// returns content as regex string
     	::std::string getExpr() const;
     	// applies std::regex_match and returns captures by name. Failure to match returns false.
@@ -91,8 +93,6 @@ class myRegexBase {
     	std::map<std::string, myRegexBase::range> smatch2named(const std::smatch& m, const std::string::const_iterator start);
     MHPP("end myRegexBase")
    public:
-    myRegexBase operator+(const myRegexBase& arg) const;
-    myRegexBase operator|(const myRegexBase& arg) const;
     operator ::std::regex();
 
    protected:

@@ -11,6 +11,7 @@ class myAppRegex : public myRegexBase {
     	static myAppRegex MHPP_classfun();
     	static myAppRegex MHPP_classvar();
     	static myAppRegex MHPP_begin();
+    	// splits myOuterClass::myInnerClass::myMethod into classname=myOuterClass::myInnerClass and methodname=myMethod
     	static myAppRegex classMethodname();
     	static myAppRegex CppTemplatedType;
     protected:

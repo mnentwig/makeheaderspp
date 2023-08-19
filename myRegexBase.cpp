@@ -97,7 +97,7 @@ MHPP("public")
     throw runtime_error("Named match '" + name + "' not found");
 }
 
-//MHPP("public") // TODO support
+MHPP("public")
 myRegexBase myRegexBase::operator+(const myRegexBase& arg) const {
     myRegexBase a = (prio >= prio_e::PRIO_CONCAT) ? *this : makeGrp();
     myRegexBase b = (arg.prio >= prio_e::PRIO_CONCAT) ? arg : arg.makeGrp();
@@ -107,7 +107,7 @@ myRegexBase myRegexBase::operator+(const myRegexBase& arg) const {
     return r;
 }
 
-// M HPP("public") // TODO support
+MHPP("public")
 myRegexBase myRegexBase::operator|(const myRegexBase& arg) const {
     // special case: if an argument is an alternation at toplevel, it can be appended without need for grouping
     myRegexBase a = (prio == prio_e::PRIO_OR) ? *this : makeGrp();
