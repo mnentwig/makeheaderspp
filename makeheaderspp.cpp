@@ -50,19 +50,20 @@ class myAppRegex : public myRegexBase {
                                                  false)) +
 
                // arguments list (may not contain a round bracket)
-               capture("fun_arglist", openRoundBracket + rx("[^\\)]*", false) + closingRoundBracket) + wsOpt +
-               // qualifiers after arg list
-               capture("fun_postArg", rx("[^\\{]+", false)) + wsOpt +
+               capture("fun_arglist", openRoundBracket + rx("[^\\)\\{]*", false) + closingRoundBracket) + wsOpt +
+               // constructor initializers
+               // "constexpr", "const" qualifiers after arg list
+               capture("fun_postArg", rx("[^\\{\\;]*", false)) + wsOpt +
                txt("{");
     }
 
     static myAppRegex MHPP_classvar() {
         return txt("MHPP(\"") +
                // public or private or protected (all start with "p")
-               capture("var_MHPP_keyword", txt("p") + zeroOrMore_lazy(rx(".", false))) + txt("\")") + wsOpt +
+               capture("var_MHPP_keyword", txt("p") + zeroOrMore_lazy(rx("[a-zA-Z0-9_\\s]", false))) + txt("\")") + wsOpt +
                capture("var_comment", zeroOrMore_greedy(CComment | CppComment)) + wsOpt +
                // return type (optional, free form for templates, may include constexpr, const separated by whitespace)
-               capture("var_returntype", rx(".*?", false)) +
+               capture("var_returntype", rx("[_a-zA-Z0-9<>,:\\s]*?", false)) +
 
                // name
                capture("var_classvarname",
@@ -276,7 +277,7 @@ class codeGen {
         myAppRegex rcm = myAppRegex::classMethodname();
         map<string, myAppRegex::range> cm;
         if (!rcm.match(classmethodname, cm)) {
-            for (auto x : capt) cout << x.first << "\t" << x.second.str() << endl;
+            for (auto x : capt) cout << x.first << "\t>>>" << x.second.str() << "<<<" << endl;
             throw runtime_error("'" + classmethodname + "' is not of the expected format classname::(classname...)::methodname");
         }
 
@@ -323,7 +324,7 @@ class codeGen {
         myAppRegex rcm = myAppRegex::classMethodname();  // reusing regex
         map<string, myAppRegex::range> cm;
         if (!rcm.match(classvarname, cm)) {
-            for (auto x : capt) cout << x.first << "\t" << x.second.str() << endl;
+            for (auto x : capt) cout << x.first << "\t>>>" << x.second.str() << "<<<" << endl;
             throw runtime_error("'" + classvarname + "' is not of the expected format classname::(classname...)::varname");
         }
 
@@ -353,6 +354,10 @@ class codeGen {
     }
 
     void MHPP_classitem(const std::map<string, myAppRegex::range> capt, const string& fnameForErrMsg) {
+#if true
+        cout << "=== classitem ===" << endl;
+        for (auto x : capt) cout << x.first << "\t>>>" << x.second.str() << "<<<" << endl;
+#endif
         const string fun_keyword = myAppRegex::namedCaptAsString("fun_MHPP_keyword", capt);
         const string var_keyword = myAppRegex::namedCaptAsString("var_MHPP_keyword", capt);
         bool isFun = fun_keyword.size() > 0;

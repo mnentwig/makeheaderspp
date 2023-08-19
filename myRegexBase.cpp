@@ -223,3 +223,16 @@ std::map<std::string, myRegexBase::range> myRegexBase::smatch2named(const std::s
 
 MHPP("public static")
 std::string myRegexBase::test = std::string("test");
+
+MHPP("public")
+::std::string myRegexBase::range::getLcAnnotString() const {
+    size_t ixLineBase1;
+    size_t ixCharBase1;
+    std::string dest;
+    getBeginLineCharBase1(ixLineBase1, ixCharBase1);
+    dest += "l" + std::to_string(ixLineBase1) + "c" + std::to_string(ixCharBase1);
+    dest += "..";
+    getEndLineCharBase1(ixLineBase1, ixCharBase1);
+    dest += "l" + std::to_string(ixLineBase1) + "c" + std::to_string(ixCharBase1);
+    return dest;
+}
