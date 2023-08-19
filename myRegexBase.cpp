@@ -13,6 +13,7 @@ using std::string, std::map, std::to_string, std::runtime_error, std::vector, st
 // generic regex wrapper with named captures
 
 MHPP("public static")
+// match a literal text (escaping regex metacharacters)
 myRegexBase myRegexBase::txt(const ::std::string& text) {
     static const char metacharacters[] = R"(\.^$-+()[]{}|?*)";
     std::string out;
