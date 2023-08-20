@@ -120,6 +120,6 @@ A "waterproof" C++ parser is a nontrivial project, and it wouldn't be complete w
 Whitespace characters are tolerated in typical places but not all legal variants are supported (e.g. around ::).
 
 ### Notes:
-Note, there is no autogeneration for pure virtual or deleted methods as they don't have a definition. By definition :-) 
+Note, there is no autogeneration for pure virtual or deleted methods as by definition :-) they don't have a definition.  
 
 Files are only rewritten once all checks have passed (e.g. the redundant class name in `MHPP("begin myClass") ... MHPP("end myClass")`). Still, modifying files in-place is by nature somewhat risky e.g. file server connectivity issues. Consider using e.g. git as a safeguard.

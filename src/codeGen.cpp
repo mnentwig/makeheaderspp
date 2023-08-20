@@ -207,9 +207,12 @@ void codeGen::MHPP_classfun(const std::map<std::string, myAppRegex::range> capt,
     if (comment.size() > 0)
         destText.push_back(comment);
     string line;
-    if (keyword.find("virtual") != string::npos)
+    bool isVirtual = keyword.find("virtual") != string::npos;
+    bool isStatic = keyword.find("static") != string::npos;
+    if (isVirtual && isStatic) throw runtime_error(all.getLcAnnotString() + " C++ doesn't allow virtual and static at the same time");
+    if (isVirtual)
         line += "virtual ";
-    if (keyword.find("static") != string::npos)
+    if (isStatic)
         line += "static ";
 
     if (returntype.size() > 0)
@@ -225,6 +228,20 @@ void codeGen::MHPP_classfun(const std::map<std::string, myAppRegex::range> capt,
     destText.push_back(line);
     oneClass& c = getClass(classname);
     c.addTextByKeyword(keyword, destText, /*for error message*/ classmethodname);
+
+    // search for altclass=xyz
+    std::vector<myAppRegex::range> altclassNonCapt;
+    std::vector<std::map<string, myAppRegex::range>> altclassCapt;
+
+    myAppRegex rAltCapt = myAppRegex::rx("altclass=") + myAppRegex::capture("altclass", myAppRegex::rx("[a-zA-Z0-9_:]+"));
+    rAltCapt.allMatches(keyword, altclassNonCapt, altclassCapt);
+    for (auto altclassMatch : altclassCapt) {
+        if (isStatic) throw runtime_error(all.getLcAnnotString() + " An altclass-tagged method cannot be static");
+        if (!isVirtual) throw runtime_error(all.getLcAnnotString() + " An altclass-tagged method needs to be virtual");
+        const string altClass = myAppRegex::namedCaptAsString("altclass", altclassMatch);
+        oneClass& cAlt = getClass(altClass);
+        cAlt.addTextByKeyword("public", destText, /*for error message*/ classmethodname);
+    }
 }
 
 MHPP("protected")
