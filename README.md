@@ -46,7 +46,7 @@ int myClass::myMethod(int myArg){}
 
 A private static function would be tagged 
 ```
-MHPP("protected static") 
+MHPP("private static") 
 int myClass::myStaticFunction(int myArg){}
 ```
 and a protected virtual method 
