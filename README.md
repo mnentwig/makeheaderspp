@@ -44,11 +44,15 @@ MHPP("public")
 int myClass::myMethod(int myArg){}
 ```
 
-A static/virtual function would be tagged e.g. 
+A private static function would be tagged 
 ```
-MHPP("public static virtual") 
+MHPP("protected static") 
 ```
-
+and a protected virtual method 
+```
+MHPP("protected virtual") 
+```
+respectively.
 A conventional header file is set up, and a section is marked for autogeneration as follows:
 ```
 // this could be located in myClass.h 
