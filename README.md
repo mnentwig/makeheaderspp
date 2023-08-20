@@ -16,7 +16,7 @@ Ideally, the used text editor or IDE should automatically reload a file on chang
 ### "Inspiration"
 For routine programming work in C++, maintaining class header files seems an unproductive routine task that could be easily automated.
 
-Also, having to manually keep headers in sync adds an extra work step that discourages from e.g. adding optional "const" qualifiers, reference arguments, experimenting with refactoring and generally non-mandatory improvements for code quality (e.g. adding const to methods)
+Also, having to manually keep headers in sync adds an extra work step that discourages from e.g. adding optional "const" qualifiers, reference arguments, experimenting with refactoring and generally non-mandatory improvements for code quality.
 
 The idea is far from new - [makeheaders](https://fossil-scm.org/home/doc/trunk/tools/makeheaders.html) is a decades-old tool to generate complete headers from C code.
 
