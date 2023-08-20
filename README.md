@@ -47,12 +47,15 @@ int myClass::myMethod(int myArg){}
 A private static function would be tagged 
 ```
 MHPP("protected static") 
+int myClass::myStaticFunction(int myArg){}
 ```
 and a protected virtual method 
 ```
 MHPP("protected virtual") 
+int myClass::myVirtualMethod(int myArg){}
 ```
-respectively.
+respectively. Note, pure virtual and deleted method are edited conventionally in the header, as by definition they don't have one :-)
+
 A conventional header file is set up, and a section is marked for autogeneration as follows:
 ```
 // this could be located in myClass.h 
