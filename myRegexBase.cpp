@@ -5,7 +5,7 @@
 #include <iostream>  // debug
 #include <set>
 #include <stdexcept>
-using std::string, std::map, std::to_string, std::runtime_error, std::vector, std::smatch, std::ssub_match, std::pair, std::cout, std::endl, ::std::set;
+using std::string, std::map, std::to_string, std::runtime_error, std::vector, std::smatch, std::ssub_match, std::pair, std::cout, std::endl, std::set;
 
 // ==========================
 // === myRegexBase public ===
@@ -14,7 +14,7 @@ using std::string, std::map, std::to_string, std::runtime_error, std::vector, st
 
 MHPP("public static")
 // match a literal text (escaping regex metacharacters)
-myRegexBase myRegexBase::txt(const ::std::string& text) {
+myRegexBase myRegexBase::txt(const std::string& text) {
     static const char metacharacters[] = R"(\.^$-+()[]{}|?*)";
     std::string out;
     out.reserve(text.size());
@@ -28,19 +28,19 @@ myRegexBase myRegexBase::txt(const ::std::string& text) {
 
 MHPP("public static")
 // create arbitrary regex. Most generic variant, assumes reuse needs to wrap in (?: ...)
-myRegexBase myRegexBase::rx(const ::std::string& re) {  // TODO strip default arguments
+myRegexBase myRegexBase::rx(const std::string& re) {  // TODO strip default arguments
     return myRegexBase(re, prio_e::PRIO_UNKNOWN);
 }
 
 MHPP("public static")
 // create regex, special case for an alternation e.g. one|two|three at toplevel
-myRegexBase myRegexBase::rx_alt(const ::std::string& re) {
+myRegexBase myRegexBase::rx_alt(const std::string& re) {
     return myRegexBase(re, prio_e::PRIO_OR);
 }
 
 MHPP("public static")
 // create regex, special case for a group e.g. (...), (?:...) at toplevel
-myRegexBase myRegexBase::rx_grp(const ::std::string& re) {
+myRegexBase myRegexBase::rx_grp(const std::string& re) {
     return myRegexBase(re, prio_e::PRIO_GRP);
 }
 
@@ -81,14 +81,14 @@ myRegexBase myRegexBase::zeroOrOne_lazy(const myRegexBase& arg) {
 }
 
 MHPP("public static")
-myRegexBase myRegexBase::capture(const ::std::string& captName, const myRegexBase& arg) {
+myRegexBase myRegexBase::capture(const std::string& captName, const myRegexBase& arg) {
     myRegexBase r = arg.changeExpr("(" + arg.expr + ")", prio_e::PRIO_GRP);
     r.captureNames.insert(r.captureNames.begin(), captName);  // insert at head as we're wrapping the expression
     return r;
 }
 
 MHPP("public")
-::std::string myRegexBase::getNamedCapture(const ::std::string& name, const ::std::smatch& m) const {
+std::string myRegexBase::getNamedCapture(const std::string& name, const std::smatch& m) const {
     const size_t nNames = captureNames.size();
     if (m.size() != nNames + 1) throw runtime_error("unexpected number of regex matches (" + to_string(m.size()) + ") expecting " + to_string(nNames) + "+1 captures");
     for (size_t ix = 0; ix < nNames; ++ix)
@@ -119,21 +119,21 @@ myRegexBase myRegexBase::operator|(const myRegexBase& arg) const {
 }
 
 // converts to STL regex
-myRegexBase::operator ::std::regex() {  // FIXME support this
+myRegexBase::operator std::regex() {  // FIXME support this
     const set<string> captNamesUnique(captureNames.begin(), captureNames.end());
     assert(captNamesUnique.size() == captureNames.size() && "duplicate capture names");
-    return ::std::regex(getExpr());
+    return std::regex(getExpr());
 }
 
 MHPP("public")
 // returns content as regex string
-::std::string myRegexBase::getExpr() const {
+std::string myRegexBase::getExpr() const {
     return expr;
 }
 
 MHPP("public")
 // applies std::regex_match and returns captures by name. Failure to match returns false.
-bool myRegexBase::match(const ::std::string& text, ::std::map<::std::string, myRegexBase::range>& captures) {
+bool myRegexBase::match(const std::string& text, std::map<std::string, myRegexBase::range>& captures) {
     std::smatch m;
     if (!std::regex_match(text, m, (std::regex) * this))
         return false;
@@ -142,10 +142,10 @@ bool myRegexBase::match(const ::std::string& text, ::std::map<::std::string, myR
 }
 
 MHPP("public")
-void myRegexBase::allMatches(const ::std::string& text, ::std::vector<myRegexBase::range>& nonMatch, ::std::vector<::std::map<::std::string, myRegexBase::range>>& captures) {
+void myRegexBase::allMatches(const std::string& text, std::vector<myRegexBase::range>& nonMatch, std::vector<std::map<std::string, myRegexBase::range>>& captures) {
     assert(0 == nonMatch.size());
     assert(0 == captures.size());
-    const ::std::regex r = *this;
+    const std::regex r = *this;
     // cout << "REGEX: " << getExpr() << endl;
     const string::const_iterator start = text.cbegin();
     std::sregex_iterator it(text.cbegin(), text.cend(), r);
@@ -207,11 +207,11 @@ myRegexBase myRegexBase::makeGrp() const {
 // === myRegexBase non-public ===
 // ==============================
 MHPP("protected")
-myRegexBase::myRegexBase(const ::std::string& expr, prio_e prio) : expr(expr), prio(prio) {}
+myRegexBase::myRegexBase(const std::string& expr, prio_e prio) : expr(expr), prio(prio) {}
 
 MHPP("protected")
 // replaces internal regex, keeps named captures
-myRegexBase myRegexBase::changeExpr(const ::std::string& newExpr, prio_e newPrio) const {
+myRegexBase myRegexBase::changeExpr(const std::string& newExpr, prio_e newPrio) const {
     myRegexBase r = myRegexBase(newExpr, newPrio);
     for (auto v : captureNames) r.captureNames.push_back(v);
     return r;
@@ -245,11 +245,11 @@ std::map<std::string, myRegexBase::range> myRegexBase::smatch2named(const std::s
 // =====================================================
 MHPP("public")
 // construct begin-end range with complete text (e.g. file contents) starting at istart
-myRegexBase::range::range(::std::string::const_iterator istart, ::std::string::const_iterator ibegin, ::std::string::const_iterator iend) : istart(istart), ibegin(ibegin), iend(iend) {}
+myRegexBase::range::range(std::string::const_iterator istart, std::string::const_iterator ibegin, std::string::const_iterator iend) : istart(istart), ibegin(ibegin), iend(iend) {}
 
 MHPP("public")
 // e.g. l100c3 for character 3 in line 100 (base 1, e.g. for messages)
-::std::string myRegexBase::range::getLcAnnotString() const {
+std::string myRegexBase::range::getLcAnnotString() const {
     size_t ixLineBase1;
     size_t ixCharBase1;
     std::string dest;
@@ -263,8 +263,8 @@ MHPP("public")
 
 MHPP("public")
 // extracts range into new string
-::std::string myRegexBase::range::str() const {
-    return ::std::string(ibegin, iend);
+std::string myRegexBase::range::str() const {
+    return std::string(ibegin, iend);
 }
 
 MHPP("public")
@@ -281,22 +281,22 @@ void myRegexBase::range::getEndLineCharBase1(size_t& ixLineBase1, size_t& ixChar
 
 MHPP("public")
 // start of string that contains the range (e.g. to report line / character count in error messages)
-::std::string::const_iterator myRegexBase::range::start() const { return istart; }
+std::string::const_iterator myRegexBase::range::start() const { return istart; }
 
 MHPP("public")
 // start of range in a string beginning at start()
-::std::string::const_iterator myRegexBase::range::begin() const { return ibegin; }
+std::string::const_iterator myRegexBase::range::begin() const { return ibegin; }
 
 MHPP("public")
 // end of range in a string beginning at start()
-::std::string::const_iterator myRegexBase::range::end() const { return iend; }
+std::string::const_iterator myRegexBase::range::end() const { return iend; }
 
 MHPP("protected")
 // gets line and character count for a given iterator
-void myRegexBase::range::getLineCharBase1(::std::string::const_iterator itDest, size_t& ixLineBase1, size_t& ixCharBase1) const {
+void myRegexBase::range::getLineCharBase1(std::string::const_iterator itDest, size_t& ixLineBase1, size_t& ixCharBase1) const {
     ixLineBase1 = 1;
     ixCharBase1 = 1;
-    ::std::string::const_iterator it = istart;
+    std::string::const_iterator it = istart;
     while (it != itDest) {
         char c = *(it++);
         if (c == '\n') {

@@ -27,12 +27,12 @@ class codeGen {
     	void MHPP_classfun(const std::map<std::string, myAppRegex::range> capt, const std::string& fnameForAnnot);
     	// called on declaration regex capture that is a static variable
     	void MHPP_classvar(const std::map<std::string, myAppRegex::range> capt, const std::string& fnameForAnnot);
-    	static ::std::string readFile(const ::std::string& fname);
+    	static std::string readFile(const std::string& fname);
     MHPP("end codeGen")
    protected:
-    ::std::map<::std::string, oneClass> classesByName;
-    ::std::map<::std::string, bool> classDone;
-    ::std::map<::std::string, ::std::string> filebodyByFilename;
-    ::std::set<::std::string> filesNeedRewrite;
+    std::map<std::string, oneClass> classesByName;
+    std::map<std::string, bool> classDone;
+    std::map<std::string, std::string> filebodyByFilename;
+    std::set<std::string> filesNeedRewrite;
     bool annotate;
 };

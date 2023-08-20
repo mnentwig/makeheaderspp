@@ -271,7 +271,7 @@ void codeGen::MHPP_classvar(const std::map<std::string, myAppRegex::range> capt,
 }
 
 MHPP("protected static")
-::std::string codeGen::readFile(const ::std::string& fname) {
+std::string codeGen::readFile(const std::string& fname) {
     std::ostringstream oss;
     auto s = std::ifstream(fname, std::ios::binary);
     if (!s) throw runtime_error("failed to read '" + fname + "'");

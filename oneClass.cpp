@@ -5,16 +5,16 @@ MHPP("public")
 oneClass::oneClass() : publicText(), protectedText(), privateText() {}
 
 MHPP("public")
-const ::std::string oneClass::getPublicText(const ::std::string& indent) const { return indentStringVec(publicText, indent); }
+const std::string oneClass::getPublicText(const std::string& indent) const { return indentStringVec(publicText, indent); }
 
 MHPP("public")
-const ::std::string oneClass::getProtectedText(const ::std::string& indent) const { return indentStringVec(protectedText, indent); }
+const std::string oneClass::getProtectedText(const std::string& indent) const { return indentStringVec(protectedText, indent); }
 
 MHPP("public")
-const ::std::string oneClass::getPrivateText(const ::std::string& indent) const { return indentStringVec(privateText, indent); }
+const std::string oneClass::getPrivateText(const std::string& indent) const { return indentStringVec(privateText, indent); }
 
 MHPP("public")
-void oneClass::addTextByKeyword(const ::std::string& keyword, const ::std::vector<::std::string>& text, const ::std::string& errorObjName) {
+void oneClass::addTextByKeyword(const std::string& keyword, const std::vector<std::string>& text, const std::string& errorObjName) {
     size_t isPublic = keyword.find("public") != string::npos ? 1 : 0;
     size_t isProtected = keyword.find("protected") != string::npos ? 1 : 0;
     size_t isPrivate = keyword.find("private") != string::npos ? 1 : 0;
@@ -29,7 +29,7 @@ void oneClass::addTextByKeyword(const ::std::string& keyword, const ::std::vecto
 }
 
 MHPP("public static")
-::std::string oneClass::indentStringVec(const ::std::vector<::std::string>& vec, const ::std::string& indent) {
+std::string oneClass::indentStringVec(const std::vector<std::string>& vec, const std::string& indent) {
     string r;
     for (const string& v : vec)
         r += indent + v + "\n";

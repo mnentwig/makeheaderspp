@@ -28,10 +28,10 @@ class myClass {
     	virtual int myVirtualFun() const;
     	int myNonvirtualFun() const;
     	/* static variable with templated type and initializer */
-    	static ::std::map<::std::string, int> myMap1;
+    	static std::map<std::string, int> myMap1;
     	/* static variable without initializer */
-    	static ::std::map<::std::string, int> myMap2;
-    	::std::vector<int> myTemplateReturnType();
+    	static std::map<std::string, int> myMap2;
+    	std::vector<int> myTemplateReturnType();
     	myClass operator+(const myClass& arg) const;
     	myClass operator||(const myClass& arg) const;
     MHPP("end myClass")
@@ -83,14 +83,14 @@ int myClass::myNestedClass::myVar = 33;
 
 MHPP("public static")
 /* static variable with templated type and initializer */
-::std::map<::std::string, int> myClass::myMap1 = ::std::map<::std::string, int>({{"theAnswerIs", 84 >> 1}});
+std::map<std::string, int> myClass::myMap1 = std::map<std::string, int>({{"theAnswerIs", 84 >> 1}});
 
 MHPP("public static")
 /* static variable without initializer */
-::std::map<::std::string, int> myClass::myMap2;
+std::map<std::string, int> myClass::myMap2;
 
 MHPP("public")
-::std::vector<int> myClass::myTemplateReturnType() { return ::std::vector<int>(); }
+std::vector<int> myClass::myTemplateReturnType() { return std::vector<int>(); }
 
 MHPP("public")
 myClass myClass::operator+(const myClass& arg) const { return myClass(arg); }
