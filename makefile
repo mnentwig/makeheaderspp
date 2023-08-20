@@ -28,9 +28,15 @@ reftest: makeheaderspp.exe
 	rm -f tests/testBasic.cpp
 
 	cp tests/test.cpp tests/testAnnotate.cpp
-	./makeheaderspp.exe tests/testAnnotate.cpp
+	./makeheaderspp.exe -annotate tests/testAnnotate.cpp
 	diff tests/testAnnotate.cpp tests/testAnnotateRef.cpp
 	rm -f tests/testAnnotate.cpp
+	@echo "success: all test results are identical to reference results"
+
+	cp tests/test.cpp tests/testClean.cpp
+	./makeheaderspp.exe -clean tests/testClean.cpp
+	diff tests/testClean.cpp tests/testCleanRef.cpp
+	rm -f tests/testClean.cpp
 	@echo "success: all test results are identical to reference results"
 
 clean: 
