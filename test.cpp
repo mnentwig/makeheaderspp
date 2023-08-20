@@ -32,6 +32,7 @@ class myClass {
     	/* static variable without initializer */
     	static std::map<std::string, int> myMap2;
     	std::vector<int> myTemplateReturnType();
+    	std::map<int, int> myTemplateReturnTypeWithCommaSpace();
     	myClass operator+(const myClass& arg) const;
     	myClass operator||(const myClass& arg) const;
     MHPP("end myClass")
@@ -91,6 +92,9 @@ std::map<std::string, int> myClass::myMap2;
 
 MHPP("public")
 std::vector<int> myClass::myTemplateReturnType() { return std::vector<int>(); }
+
+MHPP("public")
+std::map<int, int> myClass::myTemplateReturnTypeWithCommaSpace() { return std::map<int, int>(); }
 
 MHPP("public")
 myClass myClass::operator+(const myClass& arg) const { return myClass(arg); }
