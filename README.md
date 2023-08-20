@@ -1,5 +1,5 @@
 # makeheaderspp
-Automatic header generation for C++ classes
+Automatic header generation for C++ classes. See source as example.
 
 ### Purpose
 The tool auto-generates class method declarations in C++ headers from their implementation. 
