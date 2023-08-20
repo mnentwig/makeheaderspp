@@ -1,5 +1,7 @@
 #include "oneClass.h"
-using std::string, std::runtime_error;
+
+#include <regex>
+using std::string, std::vector, std::runtime_error;
 
 MHPP("public")
 oneClass::oneClass() : publicText(), protectedText(), privateText() {}
@@ -14,7 +16,8 @@ MHPP("public")
 const std::string oneClass::getPrivateText(const std::string& indent) const { return indentStringVec(privateText, indent); }
 
 MHPP("public")
-void oneClass::addTextByKeyword(const std::string& keyword, const std::vector<std::string>& text, const std::string& errorObjName) {
+void oneClass::addTextByKeyword(const std::string& keyword, const std::vector<std::string>& txt, const std::string& errorObjName) {
+    vector<string> text = splitMultilineAndIndent(txt);
     size_t isPublic = keyword.find("public") != string::npos ? 1 : 0;
     size_t isProtected = keyword.find("protected") != string::npos ? 1 : 0;
     size_t isPrivate = keyword.find("private") != string::npos ? 1 : 0;
@@ -33,5 +36,27 @@ std::string oneClass::indentStringVec(const std::vector<std::string>& vec, const
     string r;
     for (const string& v : vec)
         r += indent + v + "\n";
+    return r;
+}
+
+MHPP("protected static")
+// splits a string item containing newlines into multiple items with added indentation after the first one
+std::vector<std::string> oneClass::splitMultilineAndIndent(const std::vector<std::string>& arg) {
+    vector<string> r;
+    const std::regex rsplit("\\r*\\n");
+    for (const string& line : arg) {
+        std::sregex_token_iterator it(line.cbegin(),
+                                      line.cend(),
+                                      rsplit,
+                                      -1);
+        std::sregex_token_iterator itEnd;
+        bool isFirst = true;
+        for (; it != itEnd; ++it) {
+            if (isFirst)
+                r.push_back(it->str());
+            else
+                r.push_back(string("\t") + it->str());
+        }
+    }
     return r;
 }
