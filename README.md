@@ -54,7 +54,7 @@ and a protected virtual method
 MHPP("protected virtual") 
 int myClass::myVirtualMethod(int myArg){}
 ```
-respectively. Note, pure virtual and deleted method are edited conventionally in the header, as by definition they don't have one :-)
+respectively. Note, there is no autogeneration for pure virtual or deleted methods as they don't have a definition.
 
 A conventional header file is set up, and a section is marked for autogeneration as follows:
 ```
