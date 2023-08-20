@@ -122,6 +122,4 @@ Whitespace characters are tolerated in typical places but not all legal variants
 ### Notes:
 Note, there is no autogeneration for pure virtual or deleted methods as they don't have a definition. By definition :-) 
 
-The tool attempts to be failsafe and rewrites files only when all checks have passed (note: the redundant class name in `MHPP("begin myClass") ... MHPP("end myClass")`is one of them). 
-
-However, modifying files in-place is inherently somewhat risky. Use e.g. git.
+Files are only rewritten once all checks have passed (e.g. the redundant class name in `MHPP("begin myClass") ... MHPP("end myClass")`). Still, modifying files in-place is by nature somewhat risky e.g. file server connectivity issues. Consider using e.g. git as a safeguard.
