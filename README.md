@@ -54,7 +54,7 @@ and a protected virtual method
 MHPP("protected virtual") 
 int myClass::myVirtualMethod(int myArg){}
 ```
-respectively. Note, there is no autogeneration for pure virtual or deleted methods as they don't have a definition.
+respectively.
 
 A conventional header file is set up, and a section is marked for autogeneration as follows:
 ```
@@ -120,6 +120,8 @@ A "waterproof" C++ parser is a nontrivial project, and it wouldn't be complete w
 Whitespace characters are tolerated in typical places but not all legal variants are supported (e.g. around ::).
 
 ### Notes:
+Note, there is no autogeneration for pure virtual or deleted methods as they don't have a definition. By definition :-) 
+
 The tool attempts to be failsafe and rewrites files only when all checks have passed (note: the redundant class name in `MHPP("begin myClass") ... MHPP("end myClass")`is one of them). 
 
 However, modifying files in-place is inherently somewhat risky. Use e.g. git.
