@@ -7,11 +7,11 @@ It modifies only user-defined parts of a header, while the remaining lines are e
 
 As a typical command line invocation,
 ```
-makeheaderspp myApplicationClass.*
+makeheaderspp myApplicationClass.cpp myApplicationClass.h
 ``` 
-takes definitions from `myApplicationClass.cpp` and updates them in `myApplicationClass.h` (lazy variant: `makeheaderspp *.cpp *.h`)
+takes definitions from `myApplicationClass.cpp` and updates them in `myApplicationClass.h` (lazy variant: `makeheaderspp myApplicationClass.*` or even `makeheaderspp *.cpp *.h`)
 
-Ideally, the used text editor or IDE should automatically reload a file on change (e.g. VSCODE does).
+For a smooth workflow, the IDE or text editor should ideally reload a file automatically on change (e.g. VSCODE does).
 
 ### "Inspiration"
 For routine programming work in C++, maintaining class header files seems an unproductive routine task that could be easily automated.
