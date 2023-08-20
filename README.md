@@ -1,7 +1,7 @@
 # makeheaderspp
 Automatic header generation for C++ classes
 
-### Motivation
+### Purpose
 The tool auto-generates class method declarations in C++ headers from their implementation. 
 It modifies only user-defined parts of a header, while the remaining lines are edited conventionally. 
 
@@ -13,7 +13,7 @@ takes definitions from `myApplicationClass.cpp` and updates them in `myApplicati
 
 For a smooth workflow, the IDE or text editor should ideally reload a file automatically on change (e.g. VSCODE does).
 
-### "Inspiration"
+### Motivation
 For routine programming work in C++, maintaining class header files seems an unproductive routine task that could be easily automated.
 
 Also, having to manually keep headers in sync adds an extra work step that discourages from e.g. adding optional "const" qualifiers, reference arguments, experimenting with refactoring and generally non-mandatory improvements for code quality.
