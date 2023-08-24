@@ -112,6 +112,9 @@ Comments (single- or multiline) between `MHPP("begin classname")` and the defini
 
 If this is not desired, place before the `MHPP` tag.
 
+### pImpl generator
+Optionally, one or more pImpl wrappers can be generated around a std::shared_ptr of a given class. See tests/testPImpl.cpp (experimental feature).
+
 ### Caveats
 A "waterproof" C++ parser is a nontrivial project, and it wouldn't be complete without preprocessor and ultimately knowledge of command line defines.
 
