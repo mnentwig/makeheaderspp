@@ -21,6 +21,7 @@ class codeGen {
     	std::string MHPP_begin(const std::map<std::string, myAppRegex::range>& capt, bool clean);
     	void checkAllClassesDone();
     protected:
+    	bool hasClass(const std::string& classname);
     	oneClass& getClass(const std::string& classname);
     	static std::string trimNewline(std::string& text);
     	// called on declaration regex capture that is a function
@@ -28,6 +29,11 @@ class codeGen {
     	// called on declaration regex capture that is a static variable
     	void MHPP_classvar(const std::map<std::string, myAppRegex::range> capt, const std::string& fnameForAnnot);
     	static std::string readFile(const std::string& fname);
+    	static std::string join(const std::vector<std::string>& v, const std::string& delim);
+    private:
+    	// converts "(int x, map<string, int>y)" to {"x", "y"}
+    	static std::vector<std::string> arglist2names(const std::string& arglist);
+    	void generatePImpl(const std::string& classname, const std::string& retType, const std::string& methodname, const std::string& pImplClass, const std::string& fullArgsWithBrackets);
     MHPP("end codeGen")
    protected:
     std::map<std::string, oneClass> classesByName;

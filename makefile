@@ -7,7 +7,7 @@ makeheaderspp.exe: src/makeheaderspp.cpp src/myRegexBase.cpp src/myRegexBase.h s
 # run own code generation (only needed after code changes that change generated declarations)
 # (don't add dependency on makeheaderspp.exe, rather use the last working binary) 
 gen: 
-	./makeheaderspp.exe myRegexBase.* myAppRegex.* oneClass.* codeGen.*
+	./makeheaderspp.exe src/myRegexBase.* src/myAppRegex.* src/oneClass.* src/codeGen.*
 	@echo classes of makeheaderspp were successfully updated after code change.
 	@echo Now run "make makeheaderspp.exe"
 

@@ -4,7 +4,7 @@
 using std::string, std::vector, std::runtime_error;
 
 MHPP("public")
-oneClass::oneClass() : publicText(), protectedText(), privateText() {}
+oneClass::oneClass() : publicText(), protectedText(), privateText(), rawText() {}
 
 MHPP("public")
 const std::string oneClass::getPublicText(const std::string& indent) const { return indentStringVec(publicText, indent); }
@@ -14,6 +14,39 @@ const std::string oneClass::getProtectedText(const std::string& indent) const { 
 
 MHPP("public")
 const std::string oneClass::getPrivateText(const std::string& indent) const { return indentStringVec(privateText, indent); }
+
+MHPP("public")
+const std::string oneClass::getRawText(const std::string& indent) const { return indentStringVec(rawText, indent); }
+
+MHPP("public")
+void oneClass::addPublicText(const std::vector<std::string>& txt) {
+    vector<string> text = splitMultilineAndIndent(txt);
+    publicText.insert(publicText.end(), text.cbegin(), text.cend());
+}
+
+MHPP("public")
+void oneClass::addPublicText(const std::string& txt) {
+    vector<string> text = splitMultilineAndIndent(vector<string>({txt}));
+    publicText.insert(publicText.end(), text.cbegin(), text.cend());
+}
+
+MHPP("public")
+void oneClass::addProtectedText(const std::string& txt) {
+    vector<string> text = splitMultilineAndIndent(vector<string>({txt}));
+    protectedText.insert(protectedText.end(), text.cbegin(), text.cend());
+}
+
+MHPP("public")
+void oneClass::addRawText(const std::vector<std::string>& txt) {
+    vector<string> text = splitMultilineAndIndent(txt);
+    rawText.insert(rawText.end(), text.cbegin(), text.cend());
+}
+
+MHPP("public")
+void oneClass::addRawText(const std::string& txt) {
+    vector<string> text = splitMultiline(vector<string>({txt}));
+    rawText.insert(rawText.end(), text.cbegin(), text.cend());
+}
 
 MHPP("public")
 void oneClass::addTextByKeyword(const std::string& keyword, const std::vector<std::string>& txt, const std::string& errorObjName) {
@@ -57,6 +90,23 @@ std::vector<std::string> oneClass::splitMultilineAndIndent(const std::vector<std
             else
                 r.push_back(string("\t") + it->str());
         }
+    }
+    return r;
+}
+
+MHPP("protected static")
+// splits a string item containing newlines into multiple items
+std::vector<std::string> oneClass::splitMultiline(const std::vector<std::string>& arg) {
+    vector<string> r;
+    const std::regex rsplit("\\r*\\n");
+    for (const string& line : arg) {
+        std::sregex_token_iterator it(line.cbegin(),
+                                      line.cend(),
+                                      rsplit,
+                                      -1);
+        std::sregex_token_iterator itEnd;
+        for (; it != itEnd; ++it)
+            r.push_back(it->str());
     }
     return r;
 }

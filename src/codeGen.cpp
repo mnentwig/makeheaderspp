@@ -1,6 +1,6 @@
 #include "codegen.h"
 
-using std::vector, std::string, std::runtime_error, std::map, std::cout, std::endl;
+using std::vector, std::string, std::runtime_error, std::map, std::cout, std::endl, std::regex;
 MHPP("public")
 codeGen::codeGen(bool annotate) : annotate(annotate) {}
 
@@ -131,12 +131,15 @@ std::string codeGen::MHPP_begin(const std::map<std::string, myAppRegex::range>& 
         const string pubTxt = c.getPublicText(indentp1);
         const string protTxt = c.getProtectedText(indentp1);
         const string privTxt = c.getPrivateText(indentp1);
+        const string rawTxt = c.getRawText(indentp1);
         if (pubTxt.size() > 0)
             res += indent + "public:\n" + pubTxt;
         if (protTxt.size() > 0)
             res += indent + "protected:\n" + protTxt;
         if (privTxt.size() > 0)
             res += indent + "private:\n" + privTxt;
+        if (rawTxt.size() > 0)
+            res += rawTxt;
     }
     res += indent + "MHPP(\"end " + classname1 + "\")";  // no newline (pattern ends before it)
     return res;
@@ -147,6 +150,12 @@ void codeGen::checkAllClassesDone() {
     for (auto it : classDone)
         if (!it.second)
             throw runtime_error("no MHPP(\"begin " + it.first + "\") ... MHPP(\"end " + it.first + "\") anywhere in files");
+}
+
+MHPP("protected")
+bool codeGen::hasClass(const std::string& classname) {
+    auto itc = classesByName.find(classname);
+    return itc != classesByName.end();
 }
 
 MHPP("protected")
@@ -242,6 +251,17 @@ void codeGen::MHPP_classfun(const std::map<std::string, myAppRegex::range> capt,
         oneClass& cAlt = getClass(altClass);
         cAlt.addTextByKeyword("public", destText, /*for error message*/ classmethodname);
     }
+
+    auto rx = regex("pImpl=([_a-zA-Z0-9:]+)");
+    std::sregex_iterator itp(keyword.cbegin(), keyword.cend(), rx);
+    std::sregex_iterator itEnd;
+    while (itp != itEnd) {
+        std::smatch m = *itp;
+        assert(m.size() == 2);
+        string pImplClass = m[1];
+        generatePImpl(classname, returntype, methodname, pImplClass, arglist);
+        ++itp;
+    }
 }
 
 MHPP("protected")
@@ -294,4 +314,90 @@ std::string codeGen::readFile(const std::string& fname) {
     if (!s) throw runtime_error("failed to read '" + fname + "'");
     oss << std::ifstream(fname, std::ios::binary).rdbuf();
     return oss.str();
+}
+
+MHPP("private static")
+// converts "(int x, map<string, int>y)" to {"x", "y"}
+std::vector<std::string> codeGen::arglist2names(const std::string& arglist) {
+    vector<string> ret;
+    std::smatch m;
+
+    // remove outer round brackets, trim
+    if (!std::regex_match(arglist, m, regex("^"
+                                            "\\s*"
+                                            "\\("
+                                            "(.*)"
+                                            "\\)"
+                                            "\\s*"
+                                            "$")))
+        throw runtime_error("pimpl failed to match arglist brackets in '" + arglist + "'");
+    assert(m.size() == 2);
+    string arglistPImpl = m[1];
+    if (arglistPImpl.size() == 0) return ret;  // split below will return nSep+1 results => empty string would cause "" capture
+
+    arglistPImpl = myAppRegex::replaceAll(arglistPImpl, regex("/\\*"
+                                                              "[^\\*]*"
+                                                              "\\*/"),
+                                          " ");  // replace C++ comments with whitespace
+    arglistPImpl = myAppRegex::replaceAll(arglistPImpl, regex("<"
+                                                              "[^<>]*"
+                                                              ">"),
+                                          " ");  // replace template <> with whitespace (as the name may follow immediately after >)
+
+    // note: after removal of template args, remaining commas separate args
+    vector<string> argsPImpl = myAppRegex::split(arglistPImpl, regex(","));
+    for (const string& a : argsPImpl) {
+        if (!std::regex_match(a, m, regex("^"
+                                          ".*?"
+                                          "("
+                                          "[_a-zA-Z][_a-zA-Z0-9]*"
+                                          ")"
+                                          "\\s*"
+                                          "$")))
+            throw runtime_error("pimpl failed to match arg: '" + a + "' in '" + arglist + "'");
+        assert(m.size() == 2);
+        ret.push_back(m[1]);
+    }
+    // for (size_t ix = 0; ix < ret.size(); ++ix) 
+    //    cout << ix << "\t" << ret[ix] << endl;
+    return ret;
+}
+
+MHPP("protected static")
+std::string codeGen::join(const std::vector<std::string>& v, const std::string& delim) {
+    string r;
+    if (v.size() == 0)
+        return r;
+    r = v[0];
+    for (size_t ix = 1; ix < v.size(); ++ix)
+        r += delim + v[ix];
+    return r;
+}
+
+MHPP("private")
+void codeGen::generatePImpl(const std::string& classname, const std::string& retType, const std::string& methodname, const std::string& pImplClass, const std::string& fullArgsWithBrackets) {
+    const vector<string>& args = arglist2names(fullArgsWithBrackets);
+
+    const string classnamePImplDecl = pImplClass + "_decl";
+    const string classnamePImplImpl = pImplClass + "_impl";
+    bool hasClasses = hasClass(classnamePImplDecl);
+    bool hasClassesAlt = hasClass(classnamePImplImpl);
+    assert(!hasClasses ^ hasClassesAlt);  // can't have only one
+
+    oneClass& cDecl = getClass(classnamePImplDecl);
+    oneClass& cImpl = getClass(classnamePImplImpl);
+
+    if (!hasClasses) {
+        // constructor
+        cDecl.addPublicText(pImplClass + "(std::shared_ptr<" + classname + "> pImpl);");
+        cDecl.addProtectedText("std::shared_ptr<" + classname + "> pImpl;");
+        cImpl.addRawText(pImplClass + "::" + pImplClass + "(std::shared_ptr<" + classname + "> pImpl):pImpl(pImpl){};");
+    }
+
+    cDecl.addPublicText(retType + " " + methodname + " " + fullArgsWithBrackets + ";");
+
+    string maybeReturn = retType.size() > 0 ? "return " : "";
+    cImpl.addRawText(retType + " " + pImplClass + "::" + methodname + fullArgsWithBrackets + "{" + "\n" +
+                     "\t" + maybeReturn + "pImpl->" + methodname + "(" + join(args, ", ") + ");" + "\n" +
+                     "}");
 }

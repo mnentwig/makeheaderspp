@@ -87,6 +87,34 @@ myRegexBase myRegexBase::capture(const std::string& captName, const myRegexBase&
     return r;
 }
 
+MHPP("public static")
+std::string myRegexBase::replaceAll(std::string text, const std::regex r, const std::string& repl) {
+    while (true) {
+        string tmp = std::regex_replace(text, r, repl);
+        if (tmp == text) return text;
+        text = tmp;
+    }
+}
+
+MHPP("public static")
+// splits a string item using regex
+std::vector<std::string> myRegexBase::split(const std::string& arg, const std::regex& rx) {
+    vector<string> r;
+    std::sregex_token_iterator it(arg.cbegin(),
+                                  arg.cend(),
+                                  rx,
+                                  -1);
+    std::sregex_token_iterator itEnd;
+    bool isFirst = true;
+    for (; it != itEnd; ++it) {
+        if (isFirst)
+            r.push_back(it->str());
+        else
+            r.push_back(string("\t") + it->str());
+    }
+    return r;
+}
+
 MHPP("public")
 std::string myRegexBase::getNamedCapture(const std::string& name, const std::smatch& m) const {
     const size_t nNames = captureNames.size();

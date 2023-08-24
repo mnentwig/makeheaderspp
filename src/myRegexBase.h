@@ -73,6 +73,9 @@ class myRegexBase {
     	static myRegexBase zeroOrOne(const myRegexBase& arg);
     	static myRegexBase zeroOrOne_lazy(const myRegexBase& arg);
     	static myRegexBase capture(const std::string& captName, const myRegexBase& arg);
+    	static std::string replaceAll(std::string text, const std::regex r, const std::string& repl);
+    	// splits a string item using regex
+    	static std::vector<std::string> split(const std::string& arg, const std::regex& rx);
     	std::string getNamedCapture(const std::string& name, const std::smatch& m) const;
     	myRegexBase operator+(const myRegexBase& arg) const;
     	myRegexBase operator|(const myRegexBase& arg) const;
