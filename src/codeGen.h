@@ -33,7 +33,12 @@ class codeGen {
     private:
     	// converts "(int x, map<string, int>y)" to {"x", "y"}
     	static std::vector<std::string> arglist2names(const std::string& arglist);
-    	void generatePImpl(const std::string& classname, const std::string& retType, const std::string& methodname, const std::string& pImplClass, const std::string& fullArgsWithBrackets);
+    	void generatePImpl(const std::string& classname,
+    	                            const std::string& retType,
+    	                            const std::string& methodname,
+    	                            const std::string& pImplClass,
+    	                            const std::string& fullArgsWithBrackets,
+    	                            const std::string& postArgs);
     MHPP("end codeGen")
    protected:
     std::map<std::string, oneClass> classesByName;

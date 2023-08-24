@@ -259,7 +259,7 @@ void codeGen::MHPP_classfun(const std::map<std::string, myAppRegex::range> capt,
         std::smatch m = *itp;
         assert(m.size() == 2);
         string pImplClass = m[1];
-        generatePImpl(classname, returntype, methodname, pImplClass, arglist);
+        generatePImpl(classname, returntype, methodname, pImplClass, arglist, postArg);
         ++itp;
     }
 }
@@ -358,7 +358,7 @@ std::vector<std::string> codeGen::arglist2names(const std::string& arglist) {
         assert(m.size() == 2);
         ret.push_back(m[1]);
     }
-    // for (size_t ix = 0; ix < ret.size(); ++ix) 
+    // for (size_t ix = 0; ix < ret.size(); ++ix)
     //    cout << ix << "\t" << ret[ix] << endl;
     return ret;
 }
@@ -375,8 +375,15 @@ std::string codeGen::join(const std::vector<std::string>& v, const std::string& 
 }
 
 MHPP("private")
-void codeGen::generatePImpl(const std::string& classname, const std::string& retType, const std::string& methodname, const std::string& pImplClass, const std::string& fullArgsWithBrackets) {
+void codeGen::generatePImpl(const std::string& classname,
+                            const std::string& retType,
+                            const std::string& methodname,
+                            const std::string& pImplClass,
+                            const std::string& fullArgsWithBrackets,
+                            const std::string& postArgs) {
     const vector<string>& args = arglist2names(fullArgsWithBrackets);
+    bool constFlag = postArgs.find("const") != string::npos;
+    bool noexceptFlag = postArgs.find("noexcept") != string::npos;
 
     const string classnamePImplDecl = pImplClass + "_decl";
     const string classnamePImplImpl = pImplClass + "_impl";
@@ -387,6 +394,9 @@ void codeGen::generatePImpl(const std::string& classname, const std::string& ret
     oneClass& cDecl = getClass(classnamePImplDecl);
     oneClass& cImpl = getClass(classnamePImplImpl);
 
+    string maybeConst = constFlag ? " const" : "";
+    string maybeNoexcept = noexceptFlag ? " noexcept" : "";
+
     if (!hasClasses) {
         // constructor
         cDecl.addPublicText(pImplClass + "(std::shared_ptr<" + classname + "> pImpl);");
@@ -394,10 +404,10 @@ void codeGen::generatePImpl(const std::string& classname, const std::string& ret
         cImpl.addRawText(pImplClass + "::" + pImplClass + "(std::shared_ptr<" + classname + "> pImpl):pImpl(pImpl){};");
     }
 
-    cDecl.addPublicText(retType + " " + methodname + " " + fullArgsWithBrackets + ";");
+    cDecl.addPublicText(retType + " " + methodname + " " + fullArgsWithBrackets + maybeConst + maybeNoexcept + ";");
 
     string maybeReturn = retType.size() > 0 ? "return " : "";
-    cImpl.addRawText(retType + " " + pImplClass + "::" + methodname + fullArgsWithBrackets + "{" + "\n" +
+    cImpl.addRawText(retType + " " + pImplClass + "::" + methodname + fullArgsWithBrackets + maybeConst + maybeNoexcept + "{" + "\n" +
                      "\t" + maybeReturn + "pImpl->" + methodname + "(" + join(args, ", ") + ");" + "\n" +
                      "}");
 }
