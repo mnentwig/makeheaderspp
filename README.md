@@ -1,5 +1,5 @@
 # makeheaderspp
-Automatic header generation for C++ classes. See source as example.
+Automatic header generation for C++ classes. See source as example, in particular myRegexRange.cpp/h
 
 ### Purpose
 The tool auto-generates class method declarations in C++ headers from their implementation. 
@@ -97,7 +97,7 @@ The following types of class methods are supported:
 * static function
 * constructor
 * destructor
-* operator (?? check ??)
+* operator (partly - excluding cast)
 
 ### Supported qualifiers (after arguments list)
 * const
