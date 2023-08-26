@@ -1,13 +1,13 @@
 CXXFLAGS := -O -static -std=c++17 -Wall -Wextra -pedantic -D_GLIBCXX_DEBUG -fmax-errors=1
 # remove -D_GLIBCXX_DEBUG for performance, add -DNDEBUG
 all: makeheaderspp.exe
-makeheaderspp.exe: src/makeheaderspp.cpp src/myRegexBase.cpp src/myRegexBase.h src/myAppRegex.cpp src/myAppRegex.h src/codeGen.cpp src/codeGen.h src/oneClass.cpp src/oneClass.h
-	g++ -Isrc -o $@ src/makeheaderspp.cpp src/myRegexBase.cpp src/myAppRegex.cpp src/codeGen.cpp src/oneClass.cpp ${CXXFLAGS}
+makeheaderspp.exe: src/makeheaderspp.cpp src/myRegexBase.cpp src/myRegexBase.h src/myAppRegex.cpp src/myAppRegex.h src/codeGen.cpp src/codeGen.h src/oneClass.cpp src/oneClass.h src/myRegexRange.cpp src/myRegexRange.h
+	g++ -Isrc -o $@ src/makeheaderspp.cpp src/myRegexBase.cpp src/myAppRegex.cpp src/codeGen.cpp src/oneClass.cpp src/myRegexRange.cpp ${CXXFLAGS}
 
 # run own code generation (only needed after code changes that change generated declarations)
 # (don't add dependency on makeheaderspp.exe, rather use the last working binary) 
 gen: 
-	./makeheaderspp.exe src/myRegexBase.* src/myAppRegex.* src/oneClass.* src/codeGen.*
+	./makeheaderspp.exe src/myRegexBase.* src/myAppRegex.* src/oneClass.* src/codeGen.* src/myRegexRange.*
 	@echo classes of makeheaderspp were successfully updated after code change.
 	@echo Now run "make makeheaderspp.exe"
 

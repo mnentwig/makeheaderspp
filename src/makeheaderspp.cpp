@@ -8,12 +8,15 @@
 
 #include "codegen.h"
 #include "myAppRegex.h"
+#include "myRegexRange.h"
 //
 using std::string, std::runtime_error, std::vector, std::set, std::map, std::cout;
 
 int main(int argc, const char** argv) {
-    std::map<std::string, myRegexBase::range> captures;
-    assert(myAppRegex::CppTemplatedType.match("std::vector<int>", captures, "no file (self test)"));
+    std::map<std::string, myRegexRange> captures;
+    myRegexRange testexpr("std::vector<int>", "hardcoded");
+    
+    assert(testexpr.match(myAppRegex::CppTemplatedType, captures));
 
     // === copy command line args as filenames ===
     vector<string> filenames;

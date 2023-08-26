@@ -32,6 +32,8 @@ class codeGen {
     	static std::string readFile(const std::string& fname);
     	static std::string join(const std::vector<std::string>& v, const std::string& delim);
     private:
+    	static std::string namedCaptAsString(const std::string& name, const std::map<std::string, myRegexRange> capt);
+    	static myRegexRange namedCaptAsRange(const std::string& name, const std::map<std::string, myRegexRange> capt);
     	// converts "(int x, map<string, int>y)" to {"x", "y"}
     	static std::vector<std::string> arglist2names(const std::string& arglist);
     	void generatePImpl(const std::string& classname,

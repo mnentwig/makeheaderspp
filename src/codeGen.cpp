@@ -74,12 +74,12 @@ void codeGen::pass3(const std::string& fname) {
 }
 
 MHPP("private static")
-std::string namedCaptAsString(const std::string& name, const std::map<std::string, myRegexRange> capt) {
+std::string codeGen::namedCaptAsString(const std::string& name, const std::map<std::string, myRegexRange> capt) {
     return namedCaptAsRange(name, capt).str();
 }
 
 MHPP("private static")
-myRegexRange namedCaptAsRange(const std::string& name, const std::map<std::string, myRegexRange> capt) {
+myRegexRange codeGen::namedCaptAsRange(const std::string& name, const std::map<std::string, myRegexRange> capt) {
     auto it = capt.find(name);
     if (it == capt.end())
         throw runtime_error("regex result does not contain named capture '" + name + "'");
@@ -258,9 +258,6 @@ void codeGen::MHPP_classfun(const std::map<std::string, myRegexRange> capt) {
     c.addTextByKeyword(keyword, destText, /*for error message*/ classmethodname);
 
     // search for altclass=xyz
-    vector<myRegexRange> altclassNonCapt;
-    vector<map<string, myRegexRange>> altclassCapt;
-
     myAppRegex rAltCapt = myAppRegex::rx("altclass=") + myAppRegex::capture("altclass", myAppRegex::rx("[a-zA-Z0-9_:]+"));
     vector<myRegexRange> altclassNonCapt;
     vector<map<string, myRegexRange>> altclassCapt;
