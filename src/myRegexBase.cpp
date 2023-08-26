@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstring>   // strchr
 #include <iostream>  // debug
+#include <iterator>
 #include <set>
 #include <stdexcept>
 using std::string, std::map, std::to_string, std::runtime_error, std::vector, std::smatch, std::ssub_match, std::pair, std::cout, std::endl, std::set;
@@ -116,6 +117,9 @@ std::vector<std::string> myRegexBase::split(const std::string& arg, const std::r
 }
 
 MHPP("public")
+const std::vector<std::string> myRegexBase::getNames() const { return captureNames; }
+
+MHPP("public")
 std::string myRegexBase::getNamedCapture(const std::string& name, const std::smatch& m) const {
     const size_t nNames = captureNames.size();
     if (m.size() != nNames + 1) throw runtime_error("unexpected number of regex matches (" + to_string(m.size()) + ") expecting " + to_string(nNames) + "+1 captures");
@@ -147,7 +151,7 @@ myRegexBase myRegexBase::operator|(const myRegexBase& arg) const {
 }
 
 // converts to STL regex
-myRegexBase::operator std::regex() {  // FIXME support this
+myRegexBase::operator std::regex() const {  // FIXME support this
     const set<string> captNamesUnique(captureNames.begin(), captureNames.end());
     assert(captNamesUnique.size() == captureNames.size() && "duplicate capture names");
     return std::regex(getExpr());
@@ -161,16 +165,29 @@ std::string myRegexBase::getExpr() const {
 
 MHPP("public")
 // applies std::regex_match and returns captures by name. Failure to match returns false.
-bool myRegexBase::match(const std::string& text, std::map<std::string, myRegexBase::range>& captures) {
+bool myRegexBase::match(const std::string& text, std::map<std::string, myRegexBase::range>& captures, const fileLoc& ref) {
     std::smatch m;
     if (!std::regex_match(text, m, (std::regex) * this))
         return false;
-    captures = smatch2named(m, /*start*/ text.cbegin());
+    captures = smatch2named(m, ref);
     return true;
 }
 
 MHPP("public")
-void myRegexBase::allMatches(const std::string& text, std::vector<myRegexBase::range>& nonMatch, std::vector<std::map<std::string, myRegexBase::range>>& captures) {
+// applies std::regex_match and returns captures by name. Failure to match returns false.
+bool myRegexBase::match(const myRegexBase::range& rText, std::map<std::string, myRegexBase::range>& captures) {
+    std::smatch m;
+    const string& text = rText.str();
+    if (!std::regex_match(text, m, (std::regex) * this))
+        return false;
+    captures = smatch2named(m, rText.getRef());
+    return true;
+}
+
+MHPP("public")
+void myRegexBase::allMatches(const myRegexBase::range& rText, std::vector<myRegexBase::range>& nonMatch, std::vector<std::map<std::string, myRegexBase::range>>& captures) {
+    const string& text = rText.str();
+    const fileLoc& ref = rText.getRef();
     assert(0 == nonMatch.size());
     assert(0 == captures.size());
     const std::regex r = *this;
@@ -193,15 +210,15 @@ void myRegexBase::allMatches(const std::string& text, std::vector<myRegexBase::r
                 e += "|" + captureNames[ix] + "|\n";
             throw runtime_error(e);
         }
-        nonMatch.push_back(range(/* head of file (origin)*/ start, /* noncaptured section (=begin) */ trailer, /*captured section start (=end)*/ oneMatch[0].first));
+        nonMatch.push_back(range(text.cbegin(), /* noncaptured section (=begin) */ trailer, /*captured section start (=end)*/ oneMatch[0].first, ref));
 
-        map<string, range> oneMatchResult = smatch2named(oneMatch, start);
+        map<string, range> oneMatchResult = smatch2named(oneMatch, ref);
         trailer = oneMatch[0].second;
 
         captures.push_back(oneMatchResult);
         ++it;
     }
-    nonMatch.push_back(range(start, trailer, text.cend()));
+    nonMatch.push_back(range(text.cbegin(), /*range.begin*/ trailer, /*range.end*/ text.cend(), rText.getRef()));
     assert(nonMatch.size() == captures.size() + 1);  // unmatched|match|unmatched|match|...|unmatched
     // cout << "iterator done " << endl;
 }
@@ -214,10 +231,6 @@ std::string myRegexBase::namedCaptAsString(const std::string& name, std::map<std
 
 MHPP("public static")
 myRegexBase::range myRegexBase::namedCaptAsRange(const std::string& name, std::map<std::string, myRegexBase::range> capt) {
-    auto it = capt.find(name);
-    if (it == capt.end())
-        throw runtime_error("regex result does not contain named capture '" + name + "'");
-    return it->second;
 }
 
 MHPP("public static")
@@ -247,89 +260,83 @@ myRegexBase myRegexBase::changeExpr(const std::string& newExpr, prio_e newPrio) 
 
 MHPP("protected")
 // converts STL regex smatch result to named captures
-std::map<std::string, myRegexBase::range> myRegexBase::smatch2named(const std::smatch& m, const std::string::const_iterator start) {
+std::map<std::string, myRegexBase::range> myRegexBase::smatch2named(const std::smatch& m, const myRegexBase::fileLoc ref) {
     map<string, range> r;
 
     const size_t nMatch = captureNames.size();
-
     assert(nMatch + 1 == m.size());
 
     // insert full match at position 0
     ssub_match m0 = m[0];
-    auto q = r.insert({string("all"), range(start, m0.first, m0.second)});
+
+    // ref pointed at input text = m0.
+    // exprLoc points at match.
+    fileLoc exprLoc = ref.locFromMatch(/*start of string*/ m0.first, /*start of match*/ m0.first, /*end of match*/ m0.second);
+    auto q = r.insert({string("all"), range(m0.first, m0.first, m0.second, ref)});
     assert(q.second);
 
     for (size_t ixMatch = 0; ixMatch < nMatch; ++ixMatch) {
         const string& n = captureNames[ixMatch];
         ssub_match ms = m[ixMatch /*skip full capture*/ + 1];
-        auto res = r.insert({n, range(/*origin*/ start, /*begin*/ ms.first, /*end*/ ms.second)});
+        auto res = r.insert({n, range(m0.first, ms.first, ms.second, ref)});
         assert(/* insertion may never fail (e.g. from duplicate name)*/ res.second);
     }
     return r;
 }
 
+#if false
 // =====================================================
 // myRegexBase::range
 // =====================================================
 MHPP("public")
-// construct begin-end range with complete text (e.g. file contents) starting at istart
-myRegexBase::range::range(std::string::const_iterator istart, std::string::const_iterator ibegin, std::string::const_iterator iend) : istart(istart), ibegin(ibegin), iend(iend) {}
+myRegexBase::range::range(const std::string& text, const fileLoc& ref) : text(text), ref(ref) {}
 
 MHPP("public")
-// e.g. l100c3 for character 3 in line 100 (base 1, e.g. for messages)
-std::string myRegexBase::range::getLcAnnotString() const {
-    size_t ixLineBase1;
-    size_t ixCharBase1;
-    std::string dest;
-    getBeginLineCharBase1(ixLineBase1, ixCharBase1);
-    dest += "l" + std::to_string(ixLineBase1) + "c" + std::to_string(ixCharBase1);
-    dest += "..";
-    getEndLineCharBase1(ixLineBase1, ixCharBase1);
-    dest += "l" + std::to_string(ixLineBase1) + "c" + std::to_string(ixCharBase1);
-    return dest;
-}
+myRegexBase::range::range(const std::string& text, const std::string& fname) : text(text), ref(fileLoc(fname, text)) {}
 
 MHPP("public")
 // extracts range into new string
 std::string myRegexBase::range::str() const {
-    return std::string(ibegin, iend);
+    return text;
 }
 
 MHPP("public")
-// gets line and character count relative to beginning of string for start of region
-void myRegexBase::range::getBeginLineCharBase1(size_t& ixLineBase1, size_t& ixCharBase1) const {
-    getLineCharBase1(ibegin, ixLineBase1, ixCharBase1);
+myRegexBase::fileLoc myRegexBase::range::getRef() const {
+    return ref;
 }
 
 MHPP("public")
-// gets line and character count relative to beginning of string for end of region
-void myRegexBase::range::getEndLineCharBase1(size_t& ixLineBase1, size_t& ixCharBase1) const {
-    getLineCharBase1(iend, ixLineBase1, ixCharBase1);
+// creates range for iBegin..iEnd when original string starts at iStart and is identified by ref in a source file
+myRegexBase::range::range(const std::string::const_iterator iStart, const std::string::const_iterator iBegin, const std::string::const_iterator iEnd, const myRegexBase::fileLoc& aref) : text(iBegin, iEnd), ref(aref) {
+    ref = ref.locFromMatch(/*start of string*/ iStart, /*start of match*/ iBegin, /*end of match*/ iEnd);
 }
 
+// =====================================================
+// myRegexBase::fileLoc
+// =====================================================
 MHPP("public")
-// start of string that contains the range (e.g. to report line / character count in error messages)
-std::string::const_iterator myRegexBase::range::start() const { return istart; }
+myRegexBase::fileLoc::fileLoc(const string& filename, const string& body) : filename(filename), body(body), offset(0), length(0) {}
 
 MHPP("public")
-// start of range in a string beginning at start()
-std::string::const_iterator myRegexBase::range::begin() const { return ibegin; }
+// get file contents
+const std::string& myRegexBase::fileLoc::str() const { return body; }
 
 MHPP("public")
-// end of range in a string beginning at start()
-std::string::const_iterator myRegexBase::range::end() const { return iend; }
+myRegexBase::fileLoc myRegexBase::fileLoc::locFromMatch(const std::string::const_iterator& iStart, const std::string::const_iterator iMatchBegin, const std::string::const_iterator iMatchEnd) const {
+    fileLoc r = fileLoc(filename, body);
 
-MHPP("protected")
-// gets line and character count for a given iterator
-void myRegexBase::range::getLineCharBase1(std::string::const_iterator itDest, size_t& ixLineBase1, size_t& ixCharBase1) const {
-    ixLineBase1 = 1;
-    ixCharBase1 = 1;
-    std::string::const_iterator it = istart;
-    while (it != itDest) {
-        char c = *(it++);
-        if (c == '\n') {
-            ++ixLineBase1;
-            ixCharBase1 = 1;
-        }
-    }
+    // === convert iterators to offset / len ===
+    auto d1 = std::distance(iMatchBegin, iStart);
+    assert(d1 >= 0);
+    size_t delta = (size_t)d1;
+    auto d2 = std::distance(iMatchEnd, iMatchBegin);
+    assert(d2 >= 0);
+    size_t len = (size_t)d2;
+
+    assert(offset + delta < length && "fileLoc startpoint beyond body end");
+    assert(offset + delta + len <= length && "fileLoc endpoint beyond body end");
+    r.offset += delta;
+    r.length = len;
+    return r;
 }
+#endif

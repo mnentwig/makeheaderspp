@@ -1,6 +1,6 @@
 #include "codegen.h"
 
-using std::vector, std::string, std::runtime_error, std::map, std::cout, std::endl, std::regex;
+using std::vector, std::string, std::runtime_error, std::map, std::cout, std::endl, std::regex, std::to_string;
 MHPP("public")
 codeGen::codeGen(bool annotate) : annotate(annotate) {}
 
@@ -8,17 +8,20 @@ MHPP("public")
 void codeGen::pass1(const std::string& fname, bool clean) {
     // === read file contents ===
     string all = readFile(fname);
-    auto r = filebodyByFilename.insert({fname, all});
+    myRegexRange rall = myRegexRange(all, fname);
+    auto r = filebodyByFilename.insert({fname, rall});
     if (!r.second) throw runtime_error("duplicate filename: '" + fname + "'");
 
     if (!clean) {
         // === break into nonmatch|match|nonmatch|...|nonmatch stream ===
         myAppRegex rx = myAppRegex::comment().makeGrp() | myAppRegex::MHPP_classfun().makeGrp() | myAppRegex::MHPP_classvar().makeGrp();
-        std::vector<myAppRegex::range> nonCapt;
-        std::vector<std::map<string, myAppRegex::range>> capt;
-        rx.allMatches(all, nonCapt, capt);
+
+        vector<myRegexRange> nonCapt;
+        vector<map<string, myRegexRange>> capt;
+        rall.splitByMatches(rx, nonCapt, capt);
+
         for (const auto& a : capt)
-            MHPP_classitem(a, fname);
+            MHPP_classitem(a);
     }
 }
 
@@ -27,12 +30,12 @@ void codeGen::pass2(const std::string& fname, bool clean) {
     // === retrieve original file contents ===
     auto it = filebodyByFilename.find(fname);
     assert(it != filebodyByFilename.end());
-    string all = it->second;
+    const myRegexRange& all = it->second;
     // === break into nonmatch|match|nonmatch|...|nonmatch stream ===
     myAppRegex rx = myAppRegex::MHPP_begin();
-    std::vector<myAppRegex::range> nonCapt;
-    std::vector<std::map<string, myAppRegex::range>> capt;
-    rx.allMatches(all, nonCapt, capt);
+    vector<myRegexRange> nonCapt;
+    vector<map<string, myRegexRange>> capt;
+    all.splitByMatches(rx, nonCapt, capt);
 
     // === replace old file content between MHPP ("begin classname")...MHPP ("end classname") with respective classname's declarations ===
     const size_t nCapt = capt.size();
@@ -47,34 +50,46 @@ void codeGen::pass2(const std::string& fname, bool clean) {
     res += nonCapt[nCapt].str();
 
     // === replace in-memory file contents (but don't write yet) ===
-    auto r2 = filebodyByFilename.find(fname);
-    assert(r2 != filebodyByFilename.end());
-    if (r2->second != res) {
-        auto r = filesNeedRewrite.insert(fname);
-        assert(/*insertion may not fail*/ r.second);
+    if (all.str() != res) {
+        // contents did change
+        auto r2 = fileRewriteByName.find(fname);
+        assert(r2 == fileRewriteByName.end());
+        auto r3 = fileRewriteByName.insert({fname, res});
+        assert(/*insertion may not fail*/ r3.second);
     }
-    r2->second = res;
 }
 
 MHPP("public")
 void codeGen::pass3(const std::string& fname) {
-    if (filesNeedRewrite.find(fname) == filesNeedRewrite.end())
+    auto it = fileRewriteByName.find(fname);
+    if (it == fileRewriteByName.end())
         return;
-    auto it = filebodyByFilename.find(fname);
-    assert(it != filebodyByFilename.end());
     string all = it->second;
-#if true
+#if false
     std::ofstream(fname, std::ios::binary) << all;
 #else
-    cout << fname << endl
+    cout << "===" << fname << "===" << endl
          << all;
 #endif
 }
 
+MHPP("private static")
+std::string namedCaptAsString(const std::string& name, const std::map<std::string, myRegexRange> capt) {
+    return namedCaptAsRange(name, capt).str();
+}
+
+MHPP("private static")
+myRegexRange namedCaptAsRange(const std::string& name, const std::map<std::string, myRegexRange> capt) {
+    auto it = capt.find(name);
+    if (it == capt.end())
+        throw runtime_error("regex result does not contain named capture '" + name + "'");
+    return it->second;
+}
+
 MHPP("public")
 // called on declaration regex capture declaration
-void codeGen::MHPP_classitem(const std::map<std::string, myAppRegex::range> capt, const std::string& fnameForErrMsg) {
-    const string leadingComment = myAppRegex::namedCaptAsString("leadingComment", capt);
+void codeGen::MHPP_classitem(const std::map<std::string, myRegexRange> capt) {
+    const string leadingComment = namedCaptAsString("leadingComment", capt);
     bool isComment = leadingComment.size() > 0;
     if (isComment) {
         return;
@@ -84,39 +99,29 @@ void codeGen::MHPP_classitem(const std::map<std::string, myAppRegex::range> capt
     for (auto x : capt) cout << x.first << "\t>>>" << x.second.str() << "<<<" << endl;
 #endif
 
-    const string fun_keyword = myAppRegex::namedCaptAsString("fun_MHPP_keyword", capt);
-    const string var_keyword = myAppRegex::namedCaptAsString("var_MHPP_keyword", capt);
+    const string fun_keyword = namedCaptAsString("fun_MHPP_keyword", capt);
+    const string var_keyword = namedCaptAsString("var_MHPP_keyword", capt);
     bool isFun = fun_keyword.size() > 0;
     bool isVar = var_keyword.size() > 0;
 
     if (isFun && !isVar)
-        MHPP_classfun(capt, fnameForErrMsg);
+        MHPP_classfun(capt);
     else if (!isFun && isVar)
-        MHPP_classvar(capt, fnameForErrMsg);
+        MHPP_classvar(capt);
     else
         throw runtime_error("?? neither var nor fun (or both) ??");
 }
 
 MHPP("public")
-std::string codeGen::MHPP_begin(const std::map<std::string, myAppRegex::range>& capt, bool clean) {
-    auto it = capt.find("indent");
-    assert(it != capt.end());
-    string indent = it->second.str();
-
-    it = capt.find("classname1");
-    assert(it != capt.end());
-    string classname1 = it->second.str();
-
-    it = capt.find("classname2");
-    assert(it != capt.end());
-    string classname2 = it->second.str();
-
+std::string codeGen::MHPP_begin(const std::map<std::string, myRegexRange>& capt, bool clean) {
+    const string indent = namedCaptAsString("indent", capt);
+    const string classname1 = namedCaptAsString("classname1", capt);
+    const string classname2 = namedCaptAsString("classname2", capt);
     if (classname1 != classname2) throw runtime_error("MHPP(\"begin " + classname1 + "\") terminated by MHPP(\"end " + classname2 + ")\"");
 
     string indentp1 = indent + "\t";
 
-    string res;
-    res += indent + "MHPP(\"begin " + classname1 + "\") // === autogenerated code. Do not edit ===\n";
+    string res = indent + "MHPP(\"begin " + classname1 + "\") // === autogenerated code. Do not edit ===\n";
     if (!clean) {
         auto itc = classesByName.find(classname1);
         if (itc == classesByName.end()) throw runtime_error("no data for MHPP(\"begin " + classname1 + "\")");
@@ -162,6 +167,7 @@ MHPP("protected")
 oneClass& codeGen::getClass(const std::string& classname) {
     auto itc = classesByName.find(classname);
     if (itc == classesByName.end()) {
+        cout << "getClass inserts " << classname << endl;
         // === create new oneClass for classnames ===
         auto r = classesByName.insert({classname, oneClass()});
         itc = r.first;
@@ -184,33 +190,46 @@ std::string codeGen::trimNewline(std::string& text) {
     return text;
 }
 
+MHPP("private static")
+string getAnnot(const myRegexRange& r) {
+    size_t nLineBeginBase1;
+    size_t nCharBeginBase1;
+    size_t nLineEndBase1;
+    size_t nCharEndBase1;
+    string fname;
+    r.regionInSource(nLineBeginBase1, nCharBeginBase1, nLineEndBase1, nCharEndBase1, fname, /*base 1*/ true);
+    return fname + " l" + to_string(nLineBeginBase1) + "c" + to_string(nCharBeginBase1) + "..l" + to_string(nLineEndBase1) + "c" + to_string(nCharEndBase1);
+}
+
 MHPP("protected")
 // called on declaration regex capture that is a function
-void codeGen::MHPP_classfun(const std::map<std::string, myAppRegex::range> capt, const std::string& fnameForAnnot) {
-    const myAppRegex::range all = myAppRegex::namedCaptAsRange("all", capt);
-    const string keyword = myAppRegex::namedCaptAsString("fun_MHPP_keyword", capt);
-    string comment = myAppRegex::namedCaptAsString("fun_comment", capt);
-    const string returntype = myAppRegex::namedCaptAsString("fun_returntype", capt);
-    const string classmethodname = myAppRegex::namedCaptAsString("fun_classmethodname", capt);
-    const string arglist = myAppRegex::namedCaptAsString("fun_arglist", capt);
-    const string postArg = myAppRegex::namedCaptAsString("fun_postArg", capt);
+void codeGen::MHPP_classfun(const std::map<std::string, myRegexRange> capt) {
+    auto all = namedCaptAsRange("all", capt);
+    auto rkeyword = namedCaptAsRange("fun_MHPP_keyword", capt);
+    const string keyword = rkeyword.str();
+    auto comment = namedCaptAsString("fun_comment", capt);
+    auto returntype = namedCaptAsString("fun_returntype", capt);
+    auto rclassmethodname = namedCaptAsRange("fun_classmethodname", capt);
+    const string classmethodname = rclassmethodname.str();
+    auto arglist = namedCaptAsString("fun_arglist", capt);
+    auto postArg = namedCaptAsString("fun_postArg", capt);
     assert(keyword.size() > 0);
 
     // parse classname::methodname
     myAppRegex rcm = myAppRegex::classMethodname();
-    map<string, myAppRegex::range> cm;
-    if (!rcm.match(classmethodname, cm)) {
+    map<string, myRegexRange> cm;
+    if (!rclassmethodname.match(rcm, cm)) {
         for (auto x : capt) cout << x.first << "\t>>>" << x.second.str() << "<<<" << endl;
         throw runtime_error("'" + classmethodname + "' is not of the expected format classname::(classname...)::methodname");
     }
 
-    const string classname = myAppRegex::namedCaptAsString("classname", cm);
-    const string methodname = myAppRegex::namedCaptAsString("methodname", cm);
-
+    const string classname = namedCaptAsString("classname", cm);
+    const string methodname = namedCaptAsString("methodname", cm);
     // build output line
     vector<string> destText;
-    if (annotate)
-        destText.push_back("/* " + fnameForAnnot + " " + all.getLcAnnotString() + " */");
+    if (annotate) {
+        destText.push_back("/* " + getAnnot(all) + " */");
+    }
 
     comment = trimNewline(comment);  // newline is required terminator for multiple comments. Remove last newline only here.
     if (comment.size() > 0)
@@ -218,7 +237,7 @@ void codeGen::MHPP_classfun(const std::map<std::string, myAppRegex::range> capt,
     string line;
     bool isVirtual = keyword.find("virtual") != string::npos;
     bool isStatic = keyword.find("static") != string::npos;
-    if (isVirtual && isStatic) throw runtime_error(all.getLcAnnotString() + " C++ doesn't allow virtual and static at the same time");
+    if (isVirtual && isStatic) throw runtime_error(getAnnot(all) + ": C++ doesn't allow virtual and static at the same time");
     if (isVirtual)
         line += "virtual ";
     if (isStatic)
@@ -239,15 +258,17 @@ void codeGen::MHPP_classfun(const std::map<std::string, myAppRegex::range> capt,
     c.addTextByKeyword(keyword, destText, /*for error message*/ classmethodname);
 
     // search for altclass=xyz
-    std::vector<myAppRegex::range> altclassNonCapt;
-    std::vector<std::map<string, myAppRegex::range>> altclassCapt;
+    vector<myRegexRange> altclassNonCapt;
+    vector<map<string, myRegexRange>> altclassCapt;
 
     myAppRegex rAltCapt = myAppRegex::rx("altclass=") + myAppRegex::capture("altclass", myAppRegex::rx("[a-zA-Z0-9_:]+"));
-    rAltCapt.allMatches(keyword, altclassNonCapt, altclassCapt);
+    vector<myRegexRange> altclassNonCapt;
+    vector<map<string, myRegexRange>> altclassCapt;
+    rkeyword.splitByMatches(rAltCapt, altclassNonCapt, altclassCapt);
     for (auto altclassMatch : altclassCapt) {
-        if (isStatic) throw runtime_error(all.getLcAnnotString() + " An altclass-tagged method cannot be static");
-        if (!isVirtual) throw runtime_error(all.getLcAnnotString() + " An altclass-tagged method needs to be virtual");
-        const string altClass = myAppRegex::namedCaptAsString("altclass", altclassMatch);
+        if (isStatic) throw runtime_error(getAnnot(rkeyword) + " An altclass-tagged method cannot be static");
+        if (!isVirtual) throw runtime_error(getAnnot(rkeyword) + " An altclass-tagged method needs to be virtual");
+        const string altClass = namedCaptAsString("altclass", altclassMatch);
         oneClass& cAlt = getClass(altClass);
         cAlt.addTextByKeyword("public", destText, /*for error message*/ classmethodname);
     }
@@ -266,29 +287,30 @@ void codeGen::MHPP_classfun(const std::map<std::string, myAppRegex::range> capt,
 
 MHPP("protected")
 // called on declaration regex capture that is a static variable
-void codeGen::MHPP_classvar(const std::map<std::string, myAppRegex::range> capt, const std::string& fnameForAnnot) {
-    const myAppRegex::range all = myAppRegex::namedCaptAsRange("all", capt);
-    const string keyword = myAppRegex::namedCaptAsString("var_MHPP_keyword", capt);
-    string comment = myAppRegex::namedCaptAsString("var_comment", capt);
-    const string returntype = myAppRegex::namedCaptAsString("var_returntype", capt);
-    const string classvarname = myAppRegex::namedCaptAsString("var_classvarname", capt);
+void codeGen::MHPP_classvar(const std::map<std::string, myRegexRange> capt) {
+    const auto all = namedCaptAsRange("all", capt);
+    const auto keyword = namedCaptAsString("var_MHPP_keyword", capt);
+    auto comment = namedCaptAsString("var_comment", capt);
+    const auto returntype = namedCaptAsString("var_returntype", capt);
+    const auto rclassvarname = namedCaptAsRange("var_classvarname", capt);
+    const auto classvarname = rclassvarname.str();
     assert(keyword.size() > 0);
 
     // parse classname::varname
     myAppRegex rcm = myAppRegex::classMethodname();  // reusing regex
-    map<string, myAppRegex::range> cm;
-    if (!rcm.match(classvarname, cm)) {
+    map<string, myRegexRange> cm;
+    if (!rclassvarname.match(rcm, cm)) {
         for (auto x : capt) cout << x.first << "\t>>>" << x.second.str() << "<<<" << endl;
         throw runtime_error("'" + classvarname + "' is not of the expected format classname::(classname...)::varname");
     }
 
-    const string classname = myAppRegex::namedCaptAsString("classname", cm);
-    const string varname = myAppRegex::namedCaptAsString("methodname", cm);
+    const auto classname = namedCaptAsString("classname", cm);
+    const auto varname = namedCaptAsString("methodname", cm);
 
     // build output line
     vector<string> destText;
     if (annotate)
-        destText.push_back("/* " + fnameForAnnot + " " + all.getLcAnnotString() + " */");
+        destText.push_back("/* " + getAnnot(all) + " */");
     comment = trimNewline(comment);  // newline is required terminator for multiple comments. Remove last newline only here.
     if (comment.size() > 0)
         destText.push_back(comment);

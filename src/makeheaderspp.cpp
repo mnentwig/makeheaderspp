@@ -13,7 +13,7 @@ using std::string, std::runtime_error, std::vector, std::set, std::map, std::cou
 
 int main(int argc, const char** argv) {
     std::map<std::string, myRegexBase::range> captures;
-    assert(myAppRegex::CppTemplatedType.match("std::vector<int>", captures));
+    assert(myAppRegex::CppTemplatedType.match("std::vector<int>", captures, "no file (self test)"));
 
     // === copy command line args as filenames ===
     vector<string> filenames;
