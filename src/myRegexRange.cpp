@@ -19,8 +19,8 @@ MHPP("public")
 myRegexRange::myRegexRange(const std::string& text, const std::string& filename)
     : body(std::make_shared<string>(text.cbegin(), text.cend())),
       filename(filename),
-      iBegin(text.cbegin()),
-      iEnd(text.cend()) {}
+      iBegin(body->cbegin()),
+      iEnd(body->cend()) {}
 
 MHPP("private")
 myRegexRange::myRegexRange(const myRegexRange& src, std::string::const_iterator iBegin, std::string::const_iterator iEnd)
@@ -30,20 +30,17 @@ myRegexRange::myRegexRange(const myRegexRange& src, std::string::const_iterator 
       iEnd(iEnd) {}
 
 MHPP("public")
-std::string::const_iterator myRegexRange::begin() const { return iBegin; } // remove, unsafe (lifetime)
-
-MHPP("public")
-std::string::const_iterator myRegexRange::end() const { return iEnd; }// remove, unsafe (lifetime)
-
-MHPP("public")
 std::string myRegexRange::str() const { return string(iBegin, iEnd); }
 
 MHPP("public")
-myRegexRange myRegexRange::substr(std::string::const_iterator iBegin, std::string::const_iterator iEnd) const {
-    assert(std::distance(this->iBegin, this->iEnd) >= 0 && "this is reversed");
-    assert(std::distance(iBegin, iEnd) >= 0 && "arg is reversed");
-    assert(std::distance(iBegin, this->iBegin) >= 0 && "arg begin outside string");
-    assert(std::distance(iEnd, this->iEnd) >= 0 && "arg end outside string");
+// construct new myRegexRange using iBegin and iEnd from a regex match.
+myRegexRange myRegexRange::substr(const std::string::const_iterator iBegin, const std::string::const_iterator iEnd) const {
+    assert((this->iEnd >= this->iBegin) && "this is reversed");
+    assert((iEnd >= iBegin) && "arg is reversed");
+    assert((iBegin >= this->iBegin) && "iBegin below string");
+    assert((iBegin <= this->iEnd) && "iBegin above string");
+    assert((iEnd >= this->iBegin) && "iEnd below string");
+    assert((iEnd <= this->iEnd) && "iEnd above string");
     return myRegexRange(*this, iBegin, iEnd);
 }
 
@@ -67,7 +64,7 @@ bool myRegexRange::match(const std::regex& rx, const std::vector<std::string>& n
     if (!std::regex_match(iBegin, iEnd, m, rx))
         return false;
     const size_t nCaptFromRegex = m.size();  // including "all" at pos 0
-    assert(m.size() == names.size() + 1);
+    assert(nCaptFromRegex == names.size() + 1);
     for (size_t ix = 0; ix < nCaptFromRegex; ++ix) {
         const string name = (ix == 0) ? string("all") : names[ix - 1];
         auto r = captures.insert({name, substr(m[ix].first, m[ix].second)});
@@ -122,7 +119,7 @@ void myRegexRange::splitByMatches(const std::regex& rx, const std::vector<std::s
         const vector<myRegexRange>& oneRawMatch = it;
         assert(oneRawMatch.size() == names.size() + 1);
         map<string, myRegexRange> rInner;
-        for (size_t ix = 0; ix <= oneRawMatch.size(); ++ix) {
+        for (size_t ix = 0; ix < oneRawMatch.size(); ++ix) {
             if (ix == 0) {
                 auto q = rInner.insert({"all", oneRawMatch[ix]});
                 assert(q.second);
