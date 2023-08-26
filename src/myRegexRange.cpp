@@ -1,39 +1,29 @@
 #include "myRegexRange.h"
 
 #include <cassert>
-#include <cstring>   // strchr
-#include <iostream>  // debug
 #include <iterator>
 #include <map>
-#include <set>
-#include <stdexcept>
 
 #include "myRegexBase.h"
 
-using std::string, std::map, std::to_string, std::runtime_error, std::vector, std::smatch, std::ssub_match, std::pair, std::cout, std::endl, std::set;
+using std::string, std::map, std::to_string, std::runtime_error, std::vector, std::smatch, std::ssub_match, std::pair;
 // ==========================
 // === myRegexRange API
 // ==========================
 
 MHPP("public")
+// creates root-level object with copy of the original text, managing ownership with substrings (shared_ptr internally)
 myRegexRange::myRegexRange(const std::string& text, const std::string& filename)
     : body(std::make_shared<string>(text.cbegin(), text.cend())),
       filename(filename),
       iBegin(body->cbegin()),
       iEnd(body->cend()) {}
 
-MHPP("private")
-myRegexRange::myRegexRange(const myRegexRange& src, std::string::const_iterator iBegin, std::string::const_iterator iEnd)
-    : body(src.body),
-      filename(src.filename),
-      iBegin(iBegin),
-      iEnd(iEnd) {}
-
 MHPP("public")
 std::string myRegexRange::str() const { return string(iBegin, iEnd); }
 
 MHPP("public")
-// construct new myRegexRange using iBegin and iEnd from a regex match.
+// new myRegexRange with substring of source, using iBegin and iEnd from a regex match
 myRegexRange myRegexRange::substr(const std::string::const_iterator iBegin, const std::string::const_iterator iEnd) const {
     assert((this->iEnd >= this->iBegin) && "this is reversed");
     assert((iEnd >= iBegin) && "arg is reversed");
@@ -57,7 +47,7 @@ bool myRegexRange::match(const std::regex& rx, std::vector<myRegexRange>& captur
 }
 
 MHPP("public")
-// applies std::regex_match and returns captures by name as myRegexRange. Failure to match returns false.
+// applies std::regex_match and returns captures by name from list as myRegexRange. Failure to match returns false.
 bool myRegexRange::match(const std::regex& rx, const std::vector<std::string>& names, std::map<std::string, myRegexRange>& captures) const {
     assert(captures.size() == 0);
     std::smatch m;
@@ -80,7 +70,7 @@ bool myRegexRange::match(const myRegexBase& rx, std::map<std::string, myRegexRan
 }
 
 MHPP("public")
-// split into unmatched|match|unmatched|match|...|unmatched
+// split into unmatched|match|unmatched|match|...|unmatched, returns matches (size n) with submatch lists and unmatched(size n+1)
 void myRegexRange::splitByMatches(const std::regex& rx, std::vector<myRegexRange>& nonMatch, std::vector<std::vector<myRegexRange>>& captures) const {
     assert(0 == nonMatch.size());
     assert(0 == captures.size());
@@ -109,7 +99,7 @@ void myRegexRange::splitByMatches(const std::regex& rx, std::vector<myRegexRange
 }
 
 MHPP("public")
-// split into unmatched|match|unmatched|match|...|unmatched
+// split into unmatched|match|unmatched|match|...|unmatched, returns matches with named submatches in map(size n) and unmatched(size n+1)
 void myRegexRange::splitByMatches(const std::regex& rx, const std::vector<std::string>& names, std::vector<myRegexRange>& nonMatch, std::vector<std::map<std::string, myRegexRange>>& captures) const {
     assert(captures.size() == 0);
     vector<vector<myRegexRange>> rawMatches;
@@ -141,7 +131,7 @@ void myRegexRange::splitByMatches(const myRegexBase& rx, std::vector<myRegexRang
 }
 
 MHPP("public")
-// returns line-/character count for substring
+// returns line-/character position of substring in source
 void myRegexRange::regionInSource(size_t& lineBegin, size_t& charBegin, size_t& lineEnd, size_t& charEnd, std::string& fname, bool base1) const {
     fname = filename;
     size_t lcount = 0;
@@ -171,3 +161,13 @@ void myRegexRange::regionInSource(size_t& lineBegin, size_t& charBegin, size_t& 
     lineEnd = lcount + offset;
     charEnd = ccount + offset;
 }
+
+// ==========================
+// === myRegexRange internal
+// ==========================
+MHPP("private")
+myRegexRange::myRegexRange(const myRegexRange& src, std::string::const_iterator iBegin, std::string::const_iterator iEnd)
+    : body(src.body),
+      filename(src.filename),
+      iBegin(iBegin),
+      iEnd(iEnd) {}
