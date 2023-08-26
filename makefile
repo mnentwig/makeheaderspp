@@ -1,4 +1,4 @@
-CXXFLAGS := -O -static -std=c++17 -Wall -Wextra -pedantic -D_GLIBCXX_DEBUG -fmax-errors=1
+CXXFLAGS := -O0 -g -static -std=c++17 -Wall -Wextra -pedantic -D_GLIBCXX_DEBUG -fmax-errors=1
 # remove -D_GLIBCXX_DEBUG for performance, add -DNDEBUG
 all: makeheaderspp.exe
 makeheaderspp.exe: src/makeheaderspp.cpp src/myRegexBase.cpp src/myRegexBase.h src/myAppRegex.cpp src/myAppRegex.h src/codeGen.cpp src/codeGen.h src/oneClass.cpp src/oneClass.h src/myRegexRange.cpp src/myRegexRange.h

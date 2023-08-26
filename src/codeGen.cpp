@@ -65,7 +65,7 @@ void codeGen::pass3(const std::string& fname) {
     if (it == fileRewriteByName.end())
         return;
     string all = it->second;
-#if false
+#if true
     std::ofstream(fname, std::ios::binary) << all;
 #else
     cout << "===" << fname << "===" << endl
