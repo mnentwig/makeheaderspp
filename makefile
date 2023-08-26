@@ -19,6 +19,10 @@ test: makeheaderspp.exe
 	g++ ${CXXFLAGS} -o tests/test.exe tests/test.cpp
 # runtime checks
 	tests/test.exe
+
+	./makeheaderspp.exe tests/testPImpl.cpp
+	g++ ${CXXFLAGS} -o tests/testPImpl.exe tests/testPImpl.cpp
+	tests/testPImpl.exe
 	@echo "success: test passed!"
 
 reftest: makeheaderspp.exe
@@ -31,12 +35,17 @@ reftest: makeheaderspp.exe
 	./makeheaderspp.exe -annotate tests/testAnnotate.cpp
 	diff tests/testAnnotate.cpp tests/testAnnotateRef.cpp
 	rm -f tests/testAnnotate.cpp
-	@echo "success: all test results are identical to reference results"
 
 	cp tests/test.cpp tests/testClean.cpp
 	./makeheaderspp.exe -clean tests/testClean.cpp
 	diff tests/testClean.cpp tests/testCleanRef.cpp
 	rm -f tests/testClean.cpp
+
+	cp tests/testPImpl.cpp tests/testPImplCopy.cpp
+	./makeheaderspp.exe tests/testPImplCopy.cpp
+	diff tests/testPImplCopy.cpp tests/testPImplRef.cpp
+	rm -f tests/testPImplCopy.cpp
+
 	@echo "success: all test results are identical to reference results"
 
 clean: 

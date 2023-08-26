@@ -167,7 +167,6 @@ MHPP("protected")
 oneClass& codeGen::getClass(const std::string& classname) {
     auto itc = classesByName.find(classname);
     if (itc == classesByName.end()) {
-        cout << "getClass inserts " << classname << endl;
         // === create new oneClass for classnames ===
         auto r = classesByName.insert({classname, oneClass()});
         itc = r.first;
