@@ -1,6 +1,7 @@
 #include "oneClass.h"
 
 #include <regex>
+#include <stdexcept>
 using std::string, std::vector, std::runtime_error;
 
 MHPP("public")

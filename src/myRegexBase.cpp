@@ -178,7 +178,7 @@ myRegexBase myRegexBase::makeGrp() const {
 // === myRegexBase non-public ===
 // ==============================
 MHPP("protected")
-myRegexBase::myRegexBase(const std::string& expr, prio_e prio) : expr(expr), prio(prio) {}
+myRegexBase::myRegexBase(const std::string& expr, prio_e prio) : expr(expr), prio(prio), captureNames() {}
 
 MHPP("protected")
 // replaces internal regex, keeps named captures

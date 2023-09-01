@@ -27,6 +27,7 @@ class regionized {
         it = cursor(it, it, end, /*level*/ 0, regions, /*tExit*/ "", TOPLEVEL);
         assert(it == end);
     }
+    // returns all regions (overlapping, in order of parsing, insertion at end of region)
     vector<region> getRegions() const { return regions; }
     class region {
         friend regionizedText;  // to expose iterators
@@ -103,11 +104,27 @@ class regionized {
 
         csit_t it = beginSearch;
         size_t ntExit = tExit.size();
+        bool stringBackslashEscape = false;
         while (true) {
             assert(it <= end);
+
             if (it == end) {
                 result.push_back({begin, end, level, rType});
                 return it;
+            }
+
+            // backslash-escaped character: Skipping the next char for end detection
+            if (stringBackslashEscape) {
+                stringBackslashEscape = false;
+                ++it;
+                goto continueMainLoop;
+            }
+
+            // backslash-escaped next character (disabled in raw mode)
+            if (*it == '\\' && ((rType == SQUOTE) || ((rType == DQUOTE) && (tExit.size() == 1)))) {
+                stringBackslashEscape = true;
+                ++it;
+                goto continueMainLoop;
             }
 
             // check for exit token
@@ -163,6 +180,11 @@ class regionizedText {
     typedef std::string::const_iterator csit_t;
     regionizedText(const string& text) : text(std::make_shared<string>(text)), regs(this->text->cbegin(), this->text->cend()) {}
     vector<regionized::region> getRegions() const { return regs.getRegions(); }
+    regionized::region getRegion(size_t ixRegion) const {
+        auto v = regs.getRegions();
+        assert(v.size() > ixRegion);
+        return v[ixRegion];
+    }
     csit_t begin() const { return text->cbegin(); }
     csit_t end() const { return text->cend(); }
     string str() const { return string(text->cbegin(), text->cend()); }
@@ -194,8 +216,14 @@ class regionizedText {
     regionized regs;
 };
 
+void testcases() {
+    assert(regionizedText(R"---(hello('\"'))---").getRegion(2).str() == string("hello('\\\"')"));
+    assert(regionizedText("hello('a')").getRegion(0).str() == "'a'");
+}
+
 // string raw(R"---(blabla)---");
 int main(void) {
+    testcases();
     string text(R"---(#include <dummy.cpp>
     /* here it starts */
     int main(void){ // C comment
@@ -208,9 +236,17 @@ int main(void) {
     //   text = R"ZZZ(u8R"xxx(blabla)xxx")ZZZ";
 
     regionizedText res = regionizedText(text);
-    for (auto r : res.getRegions()) {
+    for (auto r : res.getRegions())
         cout << r.getLevel() << "\t" << r.getRType() << "\t" << r.str() << endl;
-    }
+
+    //    for (auto r : regionizedText("hello('a')").getRegions())
+    //        cout << r.getLevel() << "\t" << r.getRType() << "\t" << r.str() << endl;
+    cout << endl;
+    for (auto r : regionizedText(R"---(hello('\"'))---").getRegions())
+        cout << r.getLevel() << "\t" << r.getRType() << "\t" << r.str() << endl;
+    cout << regionizedText(R"---(hello('\"'))---").getRegion(2).str() << endl;
+    string a = regionizedText(R"---(hello('\"'))---").getRegion(2).str();
+    string b = string("hello('\"')");
 
     string blanked = res.str();
     res.mask(blanked, res.getRegions(), regionized::rType_e::DQUOTE, 'd');
