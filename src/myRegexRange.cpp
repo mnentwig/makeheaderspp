@@ -20,7 +20,14 @@ myRegexRange::myRegexRange(const std::string& text, const std::string& filename)
       iEnd(body->cend()) {}
 
 MHPP("public")
+// copies contained (sub)string into new string
 std::string myRegexRange::str() const { return string(iBegin, iEnd); }
+
+MHPP("public")
+std::string::const_iterator myRegexRange::begin() const { return iBegin; }
+
+MHPP("public")
+std::string::const_iterator myRegexRange::end() const { return iEnd; }
 
 MHPP("public")
 // new myRegexRange with substring of source, using iBegin and iEnd from a regex match

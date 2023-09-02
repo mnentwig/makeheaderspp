@@ -1,10 +1,16 @@
+//  g++ -O0 -g src/bracketizer.cpp -Wall -fmax-errors=1 -static -Wextra -Weffc++ -D_GLIBCXX_DEBUG
 #include <cassert>
 #include <iostream>  // debug
 #include <iterator>
 #include <memory>
+#include <regex>
 #include <tuple>
 #include <vector>
 using std::cout, std::endl;  // debug
+// using std::map;
+using std::pair;
+using std::regex;
+using std::smatch;
 using std::string, std::vector, std::tuple, std::shared_ptr;
 class regionizedText;
 class regionized {
@@ -46,7 +52,7 @@ class regionized {
     };
 
    private:
-    bool stringFound(const csit_t begin, const csit_t end, const string token) {
+    bool tokenFoundAtIt(const csit_t begin, const csit_t end, const string token) {
         csit_t itText = begin;
         csit_t itToken = token.cbegin();
         while (itToken != token.cend()) {
@@ -128,7 +134,7 @@ class regionized {
             }
 
             // check for exit token
-            if ((ntExit > 0) && stringFound(it, end, tExit)) {  // empty string (toplevel): run to end of string
+            if ((ntExit > 0) && tokenFoundAtIt(it, end, tExit)) {  // empty string (toplevel): run to end of string
                 // skip newline as part of terminator (don't absorb as part of C-comment but leave as whitespace)
                 if (tExit.back() == '\n')
                     it += tExit.size() - 1;
@@ -143,14 +149,14 @@ class regionized {
                 goto skipRecursion;
 
             // Skip << operator e.g. "cout << endl" to disambiguate from template angle brackets (which can open only one at a time)
-            if (stringFound(it, end, string("<<"))) {
+            if (tokenFoundAtIt(it, end, string("<<"))) {
                 it += 2;
                 goto continueMainLoop;
             }
 
             // search for raw string
             for (const string& rawToken : rawTokens) {
-                if (stringFound(it, end, rawToken)) {
+                if (tokenFoundAtIt(it, end, rawToken)) {
                     const string rawTerm = getRawStringTerminatorOrDoubleQuote(it, end);
                     cout << "XXXXXX rawTerm:" << rawTerm << endl;
                     it = cursor(it, it + rawToken.size(), end, level + 1, result, rawTerm, DQUOTE);
@@ -160,7 +166,7 @@ class regionized {
 
             // search for hierarchic subexpressions
             for (const auto& [left, right, br_rType] : bracketpairs) {
-                if (stringFound(it, end, left)) {
+                if (tokenFoundAtIt(it, end, left)) {
                     it = cursor(it, it + left.size(), end, level + 1, result, right, br_rType);
                     goto continueMainLoop;
                 }
@@ -199,6 +205,25 @@ class regionizedText {
             }
     }
 
+    // given an iterator it from sOrig, return an iterator to the same position in sDest (which must have the same length)
+    static std::string::const_iterator remapIterator(const std::string& sSrc, const std::string& sDest, const std::string::const_iterator it) {
+        assert(sSrc.size() == sDest.size());
+        assert(it >= sSrc.cbegin());
+        assert(it <= sSrc.cend());
+        size_t delta = it - sSrc.cbegin();
+        return sDest.cbegin() + delta;
+    }
+
+    // given an iterator it from external string sExt, return an iterator to the same position in object text
+    std::string::const_iterator remapExtIteratorToInt(const std::string& sExt, const std::string::const_iterator it) {
+        return remapIterator(/*from*/ sExt, /*to*/ *text, it);
+    }
+
+    // given an iterator it from object text, return an iterator to the same position in an external string sExt
+    std::string::const_iterator remapIntIteratorToExt(const std::string& sExt, const std::string::const_iterator it) {
+        return remapIterator(/*from*/ *text, /*to*/ sExt, it);
+    }
+
    private:
     void mask(string& data, csit_t maskBegin, csit_t maskEnd, char maskChar) const {
         assert(maskBegin <= maskEnd);
@@ -217,8 +242,19 @@ class regionizedText {
 };
 
 void testcases() {
-    assert(regionizedText(R"---(hello('\"'))---").getRegion(2).str() == string("hello('\\\"')"));
+    assert(regionizedText(R"---(hello('\"'))---").getRegion(2).str() == string("hello('\\\"')"));  // escaped quote in char
     assert(regionizedText("hello('a')").getRegion(0).str() == "'a'");
+    assert(regionizedText("\"she said \\\"hello\\\"\"").getRegion(0).str() == "\"she said \\\"hello\\\"\"");  // escaped quote in string
+}
+
+void dumpRegions(const regionizedText rText) {
+    auto reg = rText.getRegions();
+    cout << "arrIx\tlevel\trType\rstr\n";
+    for (size_t ix = 0; ix < reg.size(); ++ix) {
+        regionized::region r = reg[ix];
+        cout << ix << "\t" << r.getLevel() << "\t" << r.getRType() << "\t" << r.str() << endl;
+    }
+    cout << endl;
 }
 
 // string raw(R"---(blabla)---");
@@ -232,7 +268,12 @@ int main(void) {
         }
         map<string, vector<int>> result;
         string raw(u8R"xxx(blabla)xxx");
-    })---");
+    }
+    class hello{
+MHPP("begin hello")        
+MHPP ("end hello")        
+    };
+    )---");
     //   text = R"ZZZ(u8R"xxx(blabla)xxx")ZZZ";
 
     regionizedText res = regionizedText(text);
@@ -246,15 +287,45 @@ int main(void) {
         cout << r.getLevel() << "\t" << r.getRType() << "\t" << r.str() << endl;
     cout << regionizedText(R"---(hello('\"'))---").getRegion(2).str() << endl;
     string a = regionizedText(R"---(hello('\"'))---").getRegion(2).str();
-    string b = string("hello('\"')");
+    dumpRegions(regionizedText(R"---(hello('\"'))---"));
 
     string blanked = res.str();
-    res.mask(blanked, res.getRegions(), regionized::rType_e::DQUOTE, 'd');
-    res.mask(blanked, res.getRegions(), regionized::rType_e::REM_C, 'c');
-    res.mask(blanked, res.getRegions(), regionized::rType_e::REM_CPP, 'p');
+    res.mask(blanked, res.getRegions(), regionized::rType_e::DQUOTE);
+    res.mask(blanked, res.getRegions(), regionized::rType_e::REM_C);
+    res.mask(blanked, res.getRegions(), regionized::rType_e::REM_CPP);
     //   res.mask(blanked, res.getRegions()[0], '-');
     cout << "-----------------\n"
          << blanked << endl;
 
+    regex rMHPP(R"===(MHPP)==="   // "MHPP"
+                R"===(\s*)==="    // maybe whitespace
+                R"===(\()==="     // "("
+                R"===(()==="      // capture 1 start
+                R"===([^)]*)==="  // anything except literal closing bracket
+                R"===())==="      // capture 1 end
+                R"===(\))==="     // ")"
+    );
+
+#if 0
+csitPairVec_t nonMatch, // we don't need this anymore!!
+csitPairVecVec_t match,
+regexAllMatches(blanked.begin(), blanked.end(), rMHPP,
+#endif
+    std::sregex_iterator it(blanked.cbegin(), blanked.cend(), rMHPP);
+    const std::sregex_iterator itEnd;  // content-independent end marker
+    vector<smatch> matches;
+    while (it != itEnd) {
+        matches.push_back(*it);
+        ++it;
+    }
+    for (const auto& s : matches) {
+        cout << "xxxxxxxxxx" << endl;
+        for (const auto& s2 : s) {
+            cout << string(s2.first, s2.second) << endl;
+            auto s2b = res.remapExtIteratorToInt(blanked, s2.first);
+            auto s2e = res.remapExtIteratorToInt(blanked, s2.second);
+            cout << string(s2b, s2e) << endl;
+        }
+    }
     return 0;
 }
