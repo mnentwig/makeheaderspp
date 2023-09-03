@@ -242,6 +242,16 @@ class regionizedText {
         return remapIterator(/*from*/ sExt, /*to*/ *text, it);
     }
 
+    // given iterators it1, it2 from external string sExt, return iterators to the same position in object text
+    std::pair<std::string::const_iterator, std::string::const_iterator> remapExtIteratorsToInt(const std::string& sExt, const pair<std::string::const_iterator, std::string::const_iterator> it) {
+        return {remapIterator(/*from*/ sExt, /*to*/ *text, it.first), remapIterator(/*from*/ sExt, /*to*/ *text, it.second)};
+    }
+
+    // given iterators it1, it2 from external string sExt, refer to the same position in object text and return as string
+    std::string remapExtIteratorsToIntStr(const std::string& sExt, const pair<std::string::const_iterator, std::string::const_iterator> it) {
+        return string(remapIterator(/*from*/ sExt, /*to*/ *text, it.first), remapIterator(/*from*/ sExt, /*to*/ *text, it.second));
+    }
+
     // given an iterator it from object text, return an iterator to the same position in an external string sExt
     std::string::const_iterator remapIntIteratorToExt(const std::string& sExt, const std::string::const_iterator it) {
         return remapIterator(/*from*/ *text, /*to*/ sExt, it);
@@ -385,7 +395,8 @@ MHPP("bla")
     };
     )---");
     //   text = R"ZZZ(u8R"xxx(blabla)xxx")ZZZ";
-
+    text = R"ZZZ(MHPP("public")
+std::map<int, int> myClass::myTemplateReturnTypeWithCommaSpace() { return std::map<int, int>(); })ZZZ";
     regionizedText res = regionizedText(text);
     for (auto r : res.getRegions())
         cout << r.getLevel() << "\t" << r.getRType() << "\t" << r.str() << endl;
@@ -393,12 +404,13 @@ MHPP("bla")
     //    for (auto r : regionizedText("hello('a')").getRegions())
     //        cout << r.getLevel() << "\t" << r.getRType() << "\t" << r.str() << endl;
     cout << endl;
+#if 0
     for (auto r : regionizedText(R"---(hello('\"'))---").getRegions())
         cout << r.getLevel() << "\t" << r.getRType() << "\t" << r.str() << endl;
     cout << regionizedText(R"---(hello('\"'))---").getRegion(2).str() << endl;
     string a = regionizedText(R"---(hello('\"'))---").getRegion(2).str();
     dumpRegions(regionizedText(R"---(hello('\"'))---"));
-
+#endif
     string blanked = res.str();
     res.mask(blanked, res.getRegions(), regionized::rType_e::DQUOTE);
     res.mask(blanked, res.getRegions(), regionized::rType_e::REM_C);
@@ -407,15 +419,19 @@ MHPP("bla")
     cout << "-----------------\n"
          << blanked << endl;
 
-    regex rMHPP(R"===(MHPP)==="   // "MHPP"
-                R"===(\s*)==="    // maybe whitespace
-                R"===(\()==="     // "("
-                R"===(()==="      // capture 1 start
-                R"===([^)]*)==="  // anything except literal closing bracket
-                R"===())==="      // capture 1 end
-                R"===(\))==="     // ")"
+    // === regex to match MHPP("args") ===
+    regex rMHPP(R"===(MHPP)==="      // "MHPP"
+                R"===(\s*)==="       // maybe whitespace
+                R"===(\()==="        // "("
+                R"===(()==="         // capture 1 start
+                R"===([^)]*)==="     // anything except literal closing bracket
+                R"===())==="         // capture 1 end
+                R"===(\))==="        // ")"
+                R"===(([^;{]+))==="  // capture 2: anything except ; and {
+                R"===(([;{]))==="    // capture 3: ; or {
     );
 
+    // === collect matches for MHPP("args") ===
     std::sregex_iterator it(blanked.cbegin(), blanked.cend(), rMHPP);
     const std::sregex_iterator itEnd;  // content-independent end marker
     vector<smatch> matches;
@@ -424,19 +440,30 @@ MHPP("bla")
         ++it;
     }
     for (const auto& s : matches) {
-        cout << "xxxxxxxxxx" << endl;
-        for (const auto& s2 : s) {
-            cout << string(s2.first, s2.second) << endl;
-            auto s2b = res.remapExtIteratorToInt(blanked, s2.first);
-            auto s2e = res.remapExtIteratorToInt(blanked, s2.second);
-            cout << string(s2b, s2e) << endl;
-            vector<regionized::region> MHPP_argV = res.getRegions(s2b, s2e, regionized::rType_e::DQUOTE_BODY);
-            if (MHPP_argV.size() != 1)
-                throw runtime_error(errmsg(res, s2b, s2e, "hardcoded", "expecting one double quoted argument, got " + to_string(MHPP_argV.size()) + "."));
-            cout << MHPP_argV[0].str() << endl;
-            //            res.regionInSource
-            //           if (MHPP_argV.size() != 1)throw runtime_error(res.
-        }
+        cout << "MHPP match found:" << endl;
+        assert(s.size() == 3 + 1);
+        auto match_all = s[0];
+        auto match_MHPP_arg = s[1];
+        auto match_declaration = s[2];
+        auto match_terminator = s[3];
+        cout << "blanked:\n";
+        cout << string(match_all.first, match_all.second) << endl;
+        auto [sAllBegin, sAllEnd] = res.remapExtIteratorsToInt(blanked, match_all);
+        cout << "original:\n";
+        cout << string(sAllBegin, sAllEnd) << endl;
+         pair <string::const_iterator, string::const_iterator> p(match_all);
+         string q(p.first, p.second);
+        auto [s3begin, s3end] = res.remapExtIteratorsToInt(blanked, match_MHPP_arg);
+        vector<regionized::region> MHPP_argV = res.getRegions(s3begin, s3end, regionized::rType_e::DQUOTE_BODY);
+        if (MHPP_argV.size() != 1)
+            throw runtime_error(errmsg(res, sAllBegin, sAllEnd, "hardcoded", "expecting one double quoted argument in MHPP(...), got " + to_string(MHPP_argV.size()) + "."));
+        cout << MHPP_argV[0].str() << endl;
+ 
+        string term = res.remapExtIteratorsToIntStr(blanked, match_terminator);
+cout << term << endl; 
+cout << match_declaration << endl;
+        //            res.regionInSource
+        //           if (MHPP_argV.size() != 1)throw runtime_error(res.
     }
     return 0;
 }
