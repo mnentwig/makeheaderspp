@@ -4,12 +4,14 @@
 #include <iterator>
 #include <memory>
 #include <regex>
+#include <set>
 #include <tuple>
 #include <vector>
 using std::cout, std::endl;  // debug
 // using std::map;
 using std::pair;
 using std::regex;
+using std::set;
 using std::smatch;
 using std::string, std::vector, std::tuple, std::shared_ptr;
 class regionizedText;
@@ -26,6 +28,7 @@ class regionized {
                    REM_C,
                    SQUOTE,
                    DQUOTE,
+                   DQUOTE_BODY,
                    TOP } rType_e;
 
     regionized(const csit_t begin, const csit_t end) : regions() {
@@ -134,16 +137,23 @@ class regionized {
             }
 
             // check for exit token
-            if ((ntExit > 0) && tokenFoundAtIt(it, end, tExit)) {  // empty string (toplevel): run to end of string
-                // skip newline as part of terminator (don't absorb as part of C-comment but leave as whitespace)
-                if (tExit.back() == '\n')
-                    it += tExit.size() - 1;
-                else
-                    it += tExit.size();
-                assert(it <= end);
-                result.push_back({begin, it, level, rType});
-                return it;
-            }
+            if (ntExit > 0)                            // empty tExit flags toplevel: run to end of string
+                if (tokenFoundAtIt(it, end, tExit)) {  // exit token at it
+                    if (rType == DQUOTE)
+                        result.push_back({beginSearch, it, level + 1, DQUOTE_BODY});
+
+                    it += tExit.size();  // include exit token in extracted region
+                    // a C-style comment is terminated by \n or \r\n, identified by \n as last char in tExit.
+                    // Move back to leave \n or \r\n as unprocessed text for caller.
+                    if (tExit.back() == '\n') {
+                        --it;
+                        if ((it > beginSearch) && (*(it - 1) == '\r'))
+                            --it;
+                    }
+                    assert(it <= end);
+                    result.push_back({begin, it, level, rType});
+                    return it;
+                }
 
             if (noRecurse)
                 goto skipRecursion;
@@ -241,12 +251,6 @@ class regionizedText {
     regionized regs;
 };
 
-void testcases() {
-    assert(regionizedText(R"---(hello('\"'))---").getRegion(2).str() == string("hello('\\\"')"));  // escaped quote in char
-    assert(regionizedText("hello('a')").getRegion(0).str() == "'a'");
-    assert(regionizedText("\"she said \\\"hello\\\"\"").getRegion(0).str() == "\"she said \\\"hello\\\"\"");  // escaped quote in string
-}
-
 void dumpRegions(const regionizedText rText) {
     auto reg = rText.getRegions();
     cout << "arrIx\tlevel\trType\rstr\n";
@@ -255,6 +259,36 @@ void dumpRegions(const regionizedText rText) {
         cout << ix << "\t" << r.getLevel() << "\t" << r.getRType() << "\t" << r.str() << endl;
     }
     cout << endl;
+}
+
+void testcases() {
+    assert(regionizedText(R"---(hello('\"'))---").getRegion(2).str() == string("hello('\\\"')"));  // escaped quote in char
+    assert(regionizedText("hello('a')").getRegion(0).str() == "'a'");
+    //    dumpRegions(regionizedText("print(\"she said \\\"hello\\\"\")"));
+    auto r = regionizedText("\"she said \\\"hello\\\"\"");
+    set<size_t> levels;
+    for (auto rr : r.getRegions()) {
+        levels.insert(rr.getLevel());
+        switch (rr.getLevel()) {
+            case 0:
+                assert(rr.str() == "\"she said \\\"hello\\\"\"");
+                assert(rr.getRType() == regionized::TOPLEVEL);
+                break;
+            case 1:
+                assert(rr.str() == "\"she said \\\"hello\\\"\"");
+                assert(rr.getRType() == regionized::DQUOTE);
+                break;
+            case 2:
+                assert(rr.str() == "she said \\\"hello\\\"");
+                assert(rr.getRType() == regionized::DQUOTE_BODY);
+                break;
+            default:
+                assert(false);
+        }
+    }
+    assert(levels.size() == 3);
+
+    //   assert(.getRegion(0).str() == "\"she said \\\"hello\\\"\"");  // escaped quote in string
 }
 
 // string raw(R"---(blabla)---");
@@ -306,11 +340,6 @@ MHPP ("end hello")
                 R"===(\))==="     // ")"
     );
 
-#if 0
-csitPairVec_t nonMatch, // we don't need this anymore!!
-csitPairVecVec_t match,
-regexAllMatches(blanked.begin(), blanked.end(), rMHPP,
-#endif
     std::sregex_iterator it(blanked.cbegin(), blanked.cend(), rMHPP);
     const std::sregex_iterator itEnd;  // content-independent end marker
     vector<smatch> matches;
