@@ -11,15 +11,18 @@ using std::cout, std::endl;  // debug
 // using std::map;
 using std::pair;
 using std::regex;
+using std::runtime_error;
 using std::set;
 using std::smatch;
 using std::string, std::vector, std::tuple, std::shared_ptr;
+using std::to_string;
 class regionizedText;
 class regionized {
    public:
     class region;
     typedef std::string::const_iterator csit_t;
-    typedef enum { TOPLEVEL,
+    typedef enum { INVALID,
+                   TOPLEVEL,
                    BRK_ANG,
                    BRK_RND,
                    BRK_SQU,
@@ -194,6 +197,7 @@ class regionized {
 class regionizedText {
    public:
     typedef std::string::const_iterator csit_t;
+    typedef regionized::rType_e rType_e;
     regionizedText(const string& text) : text(std::make_shared<string>(text)), regs(this->text->cbegin(), this->text->cend()) {}
     vector<regionized::region> getRegions() const { return regs.getRegions(); }
     regionized::region getRegion(size_t ixRegion) const {
@@ -210,9 +214,18 @@ class regionizedText {
     void mask(string& data, const vector<regionized::region>& regions, regionized::rType_e rType, char maskChar = ' ') {
         for (const regionized::region r : regions)
             if (r.getRType() == rType) {
-                //                cout << r.str() << "$" << endl;
                 mask(data, r, maskChar);
             }
+    }
+
+    // returns all regions fully included in iBegin..iEnd, optionally filtered by rType
+    std::vector<regionized::region> getRegions(csit_t iBegin, csit_t iEnd, rType_e rType = rType_e::INVALID) {
+        std::vector<regionized::region> ret;
+        for (const regionized::region r : regs.getRegions())
+            if ((rType == rType_e::INVALID) || (rType == r.getRType()))
+                if ((r.begin >= iBegin) && (r.end <= iEnd))
+                    ret.push_back(r);
+        return ret;
     }
 
     // given an iterator it from sOrig, return an iterator to the same position in sDest (which must have the same length)
@@ -232,6 +245,44 @@ class regionizedText {
     // given an iterator it from object text, return an iterator to the same position in an external string sExt
     std::string::const_iterator remapIntIteratorToExt(const std::string& sExt, const std::string::const_iterator it) {
         return remapIterator(/*from*/ *text, /*to*/ sExt, it);
+    }
+
+    // returns line-/character position of substring in source
+    void regionInSource(const regionized::region& r, bool base1, /*out*/ size_t& lineBegin, size_t& charBegin, size_t& lineEnd, size_t& charEnd) const {
+        return regionInSource(r.begin, r.end, base1, lineBegin, charBegin, lineEnd, charEnd);
+    }
+
+    // returns line-/character position of substring in source
+    void regionInSource(csit_t iBegin, csit_t iEnd, bool base1, /*out*/ size_t& lineBegin, size_t& charBegin, size_t& lineEnd, size_t& charEnd) const {
+        assert(iEnd >= iBegin);
+        assert(iBegin >= text->cbegin());
+        assert(iEnd <= text->cend());
+        size_t lcount = 0;
+        size_t ccount = 0;
+        const size_t offset = base1 ? 1 : 0;
+        std::string::const_iterator it = text->cbegin();
+        while (it != iBegin) {
+            if (*it == '\n') {
+                ++lcount;
+                ccount = 0;
+            } else {
+                ++ccount;
+            }
+            ++it;
+        }
+        lineBegin = lcount + offset;
+        charBegin = ccount + offset;
+        while (it != iEnd) {
+            if (*it == '\n') {
+                ++lcount;
+                ccount = 0;
+            } else {
+                ++ccount;
+            }
+            ++it;
+        }
+        lineEnd = lcount + offset;
+        charEnd = ccount + offset;
     }
 
    private:
@@ -291,6 +342,30 @@ void testcases() {
     //   assert(.getRegion(0).str() == "\"she said \\\"hello\\\"\"");  // escaped quote in string
 }
 
+std::string errmsg(const regionizedText& body, regionized::csit_t iBegin, regionized::csit_t iEnd, const string& filename, const string& msg) {
+    size_t lineBegin;
+    size_t charBegin;
+    size_t lineEnd;
+    size_t charEnd;
+    body.regionInSource(iBegin, iEnd, /*base1*/ true, lineBegin, charBegin, lineEnd, charEnd);
+    string ret;
+    if (filename.size() > 0)
+        ret += filename + string(":");
+    ret += "l" + to_string(lineBegin) + "c" + to_string(charBegin);
+    if ((lineEnd != lineBegin) || (charEnd != charBegin)) {
+        ret += "..l" + to_string(lineEnd) + "c" + to_string(charEnd);
+    }
+
+    const size_t nCharMax = 200;
+    if (msg.size() > 0)
+        ret += ":" + msg;
+    if (iEnd > iBegin + nCharMax)
+        ret += "\nSource:\n" + string(iBegin, iBegin + nCharMax) + "...";
+    else
+        ret += "\nSource:\n" + string(iBegin, iEnd);
+    return ret;
+}
+
 // string raw(R"---(blabla)---");
 int main(void) {
     testcases();
@@ -306,6 +381,7 @@ int main(void) {
     class hello{
 MHPP("begin hello")        
 MHPP ("end hello")        
+MHPP("bla")        
     };
     )---");
     //   text = R"ZZZ(u8R"xxx(blabla)xxx")ZZZ";
@@ -354,6 +430,12 @@ MHPP ("end hello")
             auto s2b = res.remapExtIteratorToInt(blanked, s2.first);
             auto s2e = res.remapExtIteratorToInt(blanked, s2.second);
             cout << string(s2b, s2e) << endl;
+            vector<regionized::region> MHPP_argV = res.getRegions(s2b, s2e, regionized::rType_e::DQUOTE_BODY);
+            if (MHPP_argV.size() != 1)
+                throw runtime_error(errmsg(res, s2b, s2e, "hardcoded", "expecting one double quoted argument, got " + to_string(MHPP_argV.size()) + "."));
+            cout << MHPP_argV[0].str() << endl;
+            //            res.regionInSource
+            //           if (MHPP_argV.size() != 1)throw runtime_error(res.
         }
     }
     return 0;
