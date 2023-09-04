@@ -4,17 +4,11 @@
 #include <iostream>  // debug
 #include <iterator>
 #include <memory>
-#include <regex>
-#include <set>
 #include <tuple>
 #include <vector>
 using std::cout, std::endl;  // debug
-// using std::map;
 using std::pair;
-using std::regex;
 using std::runtime_error;
-using std::set;
-using std::smatch;
 using std::string, std::vector, std::tuple, std::shared_ptr;
 using std::to_string;
 
