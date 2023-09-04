@@ -7,6 +7,8 @@
 #include <set>
 #include <tuple>
 #include <vector>
+
+#include "regionized.h"
 using std::cout, std::endl;  // debug
 // using std::map;
 using std::pair;
@@ -17,183 +19,9 @@ using std::smatch;
 using std::string, std::vector, std::tuple, std::shared_ptr;
 using std::to_string;
 class regionizedText;
-class regionized {
-   public:
-    class region;
-    typedef std::string::const_iterator csit_t;
-    typedef enum { INVALID,
-                   TOPLEVEL,
-                   BRK_ANG,
-                   BRK_RND,
-                   BRK_SQU,
-                   BRK_CRL,
-                   REM_CPP,
-                   REM_C,
-                   SQUOTE,
-                   DQUOTE,
-                   DQUOTE_BODY,
-                   TOP } rType_e;
+// Parses C(++) code recursively into list of bracketed-/quoted-/comment regions
 
-    regionized(const csit_t begin, const csit_t end) : regions() {
-        auto it = begin;
-        it = cursor(it, it, end, /*level*/ 0, regions, /*tExit*/ "", TOPLEVEL);
-        assert(it == end);
-    }
-    // returns all regions (overlapping, in order of parsing, insertion at end of region)
-    vector<region> getRegions() const { return regions; }
-    class region {
-        friend regionizedText;  // to expose iterators
-
-       public:
-        region(csit_t begin, csit_t end, size_t level, regionized::rType_e rType) : begin(begin), end(end), level(level), rType(rType) {}
-        string str() const { return string(begin, end); }
-        size_t getLevel() const { return level; }
-        rType_e getRType() const { return rType; }
-
-       protected:
-        const csit_t begin;
-        const csit_t end;
-        const size_t level;
-        rType_e rType;
-    };
-
-   private:
-    bool tokenFoundAtIt(const csit_t begin, const csit_t end, const string token) {
-        csit_t itText = begin;
-        csit_t itToken = token.cbegin();
-        while (itToken != token.cend()) {
-            if (itText == end) return false;
-            if (*(itText++) != *(itToken++)) return false;
-        }
-        return true;
-    }
-
-    string getRawStringTerminatorOrDoubleQuote(const csit_t start, const csit_t end) {
-        csit_t it = start;
-        const string dchar = string(R"--(!"#%&'*+,-./0123456789:;=?ABCDEFGHIJKLMNOPQRSTUVWXYZ^_abcdefghijklmnopqrstuvwxyz|~$@`)--");
-        // skip u8R in u8R" (advance it to double quote)
-        for (size_t ix = 0; ix < 3; ++ix) {
-            if (*it == '\"') break;
-            assert(it < end);
-            ++it;
-        }
-        assert(*it == '\"');
-        csit_t itDblQuote = it;
-        for (size_t ix = 0; ix < 16; ++ix) {
-            if (it == end) goto fail;
-            if (*it == '(') return ")" + string(itDblQuote + 1, it) + "\"";
-            if (dchar.find(*it) == string::npos) goto fail;
-            ++it;
-        }
-        // fallthrough: maximum length exceeded
-    fail:
-        // an invalid raw string gets treated as plain double quoted string
-        return "\"";
-    }
-
-    csit_t cursor(csit_t begin, csit_t beginSearch, csit_t end, size_t level, vector<region>& result, const string tExit, rType_e rType) {
-        //    cout << "..." << tExit << endl;
-        //    cout << "cursor" << level << "'" << string(begin, end) << "' " << tExit << endl;
-        assert(beginSearch >= begin);
-        assert(beginSearch <= end);
-        bool noRecurse = (rType == DQUOTE) || (rType == SQUOTE) || (rType == REM_C) || (rType == REM_CPP);  // strings and comments are lowest hierarchy level
-
-        const vector<std::tuple<string, string, rType_e>>
-            bracketpairs({{"<", ">", BRK_ANG},
-                          {"(", ")", BRK_RND},
-                          {"[", "]", BRK_SQU},
-                          {"{", "}", BRK_CRL},
-                          {"/*", "*/", REM_CPP},
-                          {"//", "\n", REM_C},
-                          {"'", "'", SQUOTE},
-                          {"\"", "\"", DQUOTE},
-                          {"L\"", "\"", DQUOTE},
-                          {"u8\"", "\"", DQUOTE},
-                          {"u\"", "\"", DQUOTE},
-                          {"U\"", "\"", DQUOTE}});
-
-        const vector<string> rawTokens({"R\"", "LR\"", "u8R\"", "uR\"", "UR\""});
-
-        csit_t it = beginSearch;
-        size_t ntExit = tExit.size();
-        bool stringBackslashEscape = false;
-        while (true) {
-            assert(it <= end);
-
-            if (it == end) {
-                result.push_back({begin, end, level, rType});
-                return it;
-            }
-
-            // backslash-escaped character: Skipping the next char for end detection
-            if (stringBackslashEscape) {
-                stringBackslashEscape = false;
-                ++it;
-                goto continueMainLoop;
-            }
-
-            // backslash-escaped next character (disabled in raw mode)
-            if (*it == '\\' && ((rType == SQUOTE) || ((rType == DQUOTE) && (tExit.size() == 1)))) {
-                stringBackslashEscape = true;
-                ++it;
-                goto continueMainLoop;
-            }
-
-            // check for exit token
-            if (ntExit > 0)                            // empty tExit flags toplevel: run to end of string
-                if (tokenFoundAtIt(it, end, tExit)) {  // exit token at it
-                    if (rType == DQUOTE)
-                        result.push_back({beginSearch, it, level + 1, DQUOTE_BODY});
-
-                    it += tExit.size();  // include exit token in extracted region
-                    // a C-style comment is terminated by \n or \r\n, identified by \n as last char in tExit.
-                    // Move back to leave \n or \r\n as unprocessed text for caller.
-                    if (tExit.back() == '\n') {
-                        --it;
-                        if ((it > beginSearch) && (*(it - 1) == '\r'))
-                            --it;
-                    }
-                    assert(it <= end);
-                    result.push_back({begin, it, level, rType});
-                    return it;
-                }
-
-            if (noRecurse)
-                goto skipRecursion;
-
-            // Skip << operator e.g. "cout << endl" to disambiguate from template angle brackets (which can open only one at a time)
-            if (tokenFoundAtIt(it, end, string("<<"))) {
-                it += 2;
-                goto continueMainLoop;
-            }
-
-            // search for raw string
-            for (const string& rawToken : rawTokens) {
-                if (tokenFoundAtIt(it, end, rawToken)) {
-                    const string rawTerm = getRawStringTerminatorOrDoubleQuote(it, end);
-                    cout << "XXXXXX rawTerm:" << rawTerm << endl;
-                    it = cursor(it, it + rawToken.size(), end, level + 1, result, rawTerm, DQUOTE);
-                    goto continueMainLoop;
-                }
-            }
-
-            // search for hierarchic subexpressions
-            for (const auto& [left, right, br_rType] : bracketpairs) {
-                if (tokenFoundAtIt(it, end, left)) {
-                    it = cursor(it, it + left.size(), end, level + 1, result, right, br_rType);
-                    goto continueMainLoop;
-                }
-            }
-
-        skipRecursion:
-            ++it;
-        continueMainLoop:;
-        }  // while true
-    }
-
-    vector<region> regions;
-};
-
+// "regionized" with ownership of input text copy
 class regionizedText {
    public:
     typedef std::string::const_iterator csit_t;
@@ -205,12 +33,22 @@ class regionizedText {
         assert(v.size() > ixRegion);
         return v[ixRegion];
     }
+    // begin() iterator into owned text
     csit_t begin() const { return text->cbegin(); }
+
+    // end() iterator into owned text
     csit_t end() const { return text->cend(); }
-    string str() const { return string(text->cbegin(), text->cend()); }
+
+    // returns complete owned text
+    string str() const { return *text; }
+
+    // maps region from internal text to "data" and fills with char.
     void mask(string& data, const regionized::region& reg, char maskChar = ' ') {
+        assert(text->size() == data.size());
         mask(data, reg.begin, reg.end, maskChar);
     }
+
+    // maps regions filtered by rType from internal text to "data" and fills with char
     void mask(string& data, const vector<regionized::region>& regions, regionized::rType_e rType, char maskChar = ' ') {
         for (const regionized::region r : regions)
             if (r.getRType() == rType) {
@@ -218,7 +56,7 @@ class regionizedText {
             }
     }
 
-    // returns all regions fully included in iBegin..iEnd, optionally filtered by rType
+    // returns all regions fully contained in iBegin..iEnd, optionally filtered by rType
     std::vector<regionized::region> getRegions(csit_t iBegin, csit_t iEnd, rType_e rType = rType_e::INVALID) {
         std::vector<regionized::region> ret;
         for (const regionized::region r : regs.getRegions())
@@ -308,6 +146,7 @@ class regionizedText {
             *(it++) = maskChar;
     }
 
+    // owned copy of input text
     const shared_ptr<const string> text;  // may never change (would invalidate region iterators)
     regionized regs;
 };
@@ -352,7 +191,7 @@ void testcases() {
     //   assert(.getRegion(0).str() == "\"she said \\\"hello\\\"\"");  // escaped quote in string
 }
 
-std::string errmsg(const regionizedText& body, regionized::csit_t iBegin, regionized::csit_t iEnd, const string& filename, const string& msg) {
+std::string errmsg(const regionizedText& body, csit_t iBegin, csit_t iEnd, const string& filename, const string& msg) {
     size_t lineBegin;
     size_t charBegin;
     size_t lineEnd;
@@ -451,17 +290,17 @@ std::map<int, int> myClass::myTemplateReturnTypeWithCommaSpace() { return std::m
         auto [sAllBegin, sAllEnd] = res.remapExtIteratorsToInt(blanked, match_all);
         cout << "original:\n";
         cout << string(sAllBegin, sAllEnd) << endl;
-         pair <string::const_iterator, string::const_iterator> p(match_all);
-         string q(p.first, p.second);
+        pair<string::const_iterator, string::const_iterator> p(match_all);
+        string q(p.first, p.second);
         auto [s3begin, s3end] = res.remapExtIteratorsToInt(blanked, match_MHPP_arg);
         vector<regionized::region> MHPP_argV = res.getRegions(s3begin, s3end, regionized::rType_e::DQUOTE_BODY);
         if (MHPP_argV.size() != 1)
             throw runtime_error(errmsg(res, sAllBegin, sAllEnd, "hardcoded", "expecting one double quoted argument in MHPP(...), got " + to_string(MHPP_argV.size()) + "."));
         cout << MHPP_argV[0].str() << endl;
- 
+
         string term = res.remapExtIteratorsToIntStr(blanked, match_terminator);
-cout << term << endl; 
-cout << match_declaration << endl;
+        cout << term << endl;
+        cout << match_declaration << endl;
         //            res.regionInSource
         //           if (MHPP_argV.size() != 1)throw runtime_error(res.
     }
