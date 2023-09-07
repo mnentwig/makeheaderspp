@@ -8,6 +8,8 @@
 #include <tuple>
 #include <vector>
 
+#include "MHPP_keyword.h"
+#include "common.h"
 #include "regionizedText.h"
 using std::cout, std::endl;  // debug
 // using std::map;
@@ -19,7 +21,6 @@ using std::smatch;
 using std::string, std::vector, std::tuple, std::shared_ptr;
 using std::to_string;
 class regionizedText;
-// Parses C(++) code recursively into list of bracketed-/quoted-/comment regions
 
 void dumpRegions(const regionizedText rText) {
     auto reg = rText.getRegions();
@@ -31,63 +32,9 @@ void dumpRegions(const regionizedText rText) {
     cout << endl;
 }
 
-void testcases() {
-    assert(regionizedText(R"---(hello('\"'))---").getRegion(2).str() == string("hello('\\\"')"));  // escaped quote in char
-    assert(regionizedText("hello('a')").getRegion(0).str() == "'a'");
-    //    dumpRegions(regionizedText("print(\"she said \\\"hello\\\"\")"));
-    auto r = regionizedText("\"she said \\\"hello\\\"\"");
-    set<size_t> levels;
-    for (auto rr : r.getRegions()) {
-        levels.insert(rr.getLevel());
-        switch (rr.getLevel()) {
-            case 0:
-                assert(rr.str() == "\"she said \\\"hello\\\"\"");
-                assert(rr.getRType() == regionized::TOPLEVEL);
-                break;
-            case 1:
-                assert(rr.str() == "\"she said \\\"hello\\\"\"");
-                assert(rr.getRType() == regionized::DQUOTE);
-                break;
-            case 2:
-                assert(rr.str() == "she said \\\"hello\\\"");
-                assert(rr.getRType() == regionized::DQUOTE_BODY);
-                break;
-            default:
-                assert(false);
-        }
-    }
-    assert(levels.size() == 3);
-
-    //   assert(.getRegion(0).str() == "\"she said \\\"hello\\\"\"");  // escaped quote in string
-}
-
-std::string errmsg(const regionizedText& body, csit_t iBegin, csit_t iEnd, const string& filename, const string& msg) {
-    size_t lineBegin;
-    size_t charBegin;
-    size_t lineEnd;
-    size_t charEnd;
-    body.regionInSource(iBegin, iEnd, /*base1*/ true, lineBegin, charBegin, lineEnd, charEnd);
-    string ret;
-    if (filename.size() > 0)
-        ret += filename + string(":");
-    ret += "l" + to_string(lineBegin) + "c" + to_string(charBegin);
-    if ((lineEnd != lineBegin) || (charEnd != charBegin)) {
-        ret += "..l" + to_string(lineEnd) + "c" + to_string(charEnd);
-    }
-
-    const size_t nCharMax = 200;
-    if (msg.size() > 0)
-        ret += ":" + msg;
-    if (iEnd > iBegin + nCharMax)
-        ret += "\nSource:\n" + string(iBegin, iBegin + nCharMax) + "...";
-    else
-        ret += "\nSource:\n" + string(iBegin, iEnd);
-    return ret;
-}
-
 // string raw(R"---(blabla)---");
 int main(void) {
-    testcases();
+    regionizedText::testcases();
     string text(R"---(#include <dummy.cpp>
     /* here it starts */
     int main(void){ // C comment
@@ -165,12 +112,13 @@ std::map<int, int> myClass::myTemplateReturnTypeWithCommaSpace() { return std::m
         auto [s3begin, s3end] = res.remapExtIteratorsToInt(blanked, match_MHPP_arg);
         vector<regionized::region> MHPP_argV = res.getRegions(s3begin, s3end, regionized::rType_e::DQUOTE_BODY);
         if (MHPP_argV.size() != 1)
-            throw runtime_error(errmsg(res, sAllBegin, sAllEnd, "hardcoded", "expecting one double quoted argument in MHPP(...), got " + to_string(MHPP_argV.size()) + "."));
+            throw runtime_error(common::errmsg(res, sAllBegin, sAllEnd, "hardcoded", "expecting one double quoted argument in MHPP(...), got " + to_string(MHPP_argV.size()) + "."));
         cout << MHPP_argV[0].str() << endl;
 
         string term = res.remapExtIteratorsToIntStr(blanked, match_terminator);
         cout << term << endl;
         cout << match_declaration << endl;
+        MHPP_keyword::parse(res, "no filename");
         //            res.regionInSource
         //           if (MHPP_argV.size() != 1)throw runtime_error(res.
     }

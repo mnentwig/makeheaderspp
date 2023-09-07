@@ -18,27 +18,33 @@ class regionizedText {
     	// returns complete owned text
     	string str() const;
     	// maps region from internal text to "data" and fills with char.
-    	void mask(string& data, const regionized::region& reg, char maskChar);
+    	void mask(string& data, const regionized::region& reg, char maskChar) const;
+    	// maps region from internal text to "data" and fills with char.
+    	void mask(string& data, const regionized::region& reg, char maskChar, char startChar, char endChar) const;
     	// maps regions filtered by rType from internal text to "data" and fills with char
-    	void mask(string& data, const vector<regionized::region>& regions, regionized::rType_e rType, char maskChar);
+    	void mask(string& data, const vector<regionized::region>& regions, regionized::rType_e rType, char maskChar) const;
+    	// maps regions filtered by rType from internal text to "data" and fills with char
+    	void mask(string& data, const vector<regionized::region>& regions, regionized::rType_e rType, char maskChar, char startChar, char endChar) const;
     	// returns all regions fully contained in iBegin..iEnd, filtered by rType (rType_e::INVALID selects all)
     	std::vector<regionized::region> getRegions(csit_t iBegin, csit_t iEnd, rType_e rType) const;
-    	// given an iterator it from sOrig, return an iterator to the same position in sDest (which must have the same length)
+    	// given an iterator it from sOrig, return an iterator to the same position in (same-sized) sDest
     	static csit_t remapIterator(const std::string& sSrc, const std::string& sDest, const csit_t it);
-    	// given an iterator it from external string sExt, return an iterator to the same position in object text
-    	csit_t remapExtIteratorToInt(const std::string& sExt, const csit_t it);
+    	// given an iterator it from external string sExt, return an iterator to the same position in (same-sized) object text
+    	csit_t remapExtIteratorToInt(const std::string& sExt, const csit_t it) const;
     	// given iterators it1, it2 from external string sExt, return iterators to the same position in object text
-    	std::pair<csit_t, csit_t> remapExtIteratorsToInt(const std::string& sExt, const pair<csit_t, csit_t> it);
+    	std::pair<csit_t, csit_t> remapExtIteratorsToInt(const std::string& sExt, const pair<csit_t, csit_t> it) const;
     	// given iterators it1, it2 from external string sExt, refer to the same position in object text and return as string
-    	std::string remapExtIteratorsToIntStr(const std::string& sExt, const pair<csit_t, csit_t> it);
+    	std::string remapExtIteratorsToIntStr(const std::string& sExt, const pair<csit_t, csit_t> it) const;
     	// given an iterator it from object text, return an iterator to the same position in an external string sExt
-    	csit_t remapIntIteratorToExt(const std::string& sExt, const csit_t it);
+    	csit_t remapIntIteratorToExt(const std::string& sExt, const csit_t it) const;
     	// returns line-/character position of substring in source
     	void regionInSource(const regionized::region& r, bool base1, /*out*/ size_t& lineBegin, size_t& charBegin, size_t& lineEnd, size_t& charEnd) const;
     	// returns line-/character position of substring in source
     	void regionInSource(csit_t iBegin, csit_t iEnd, bool base1, /*out*/ size_t& lineBegin, size_t& charBegin, size_t& lineEnd, size_t& charEnd) const;
+    	static void testcases();
     private:
     	void mask(string& data, csit_t maskBegin, csit_t maskEnd, char maskChar) const;
+    	void mask(string& data, csit_t maskBegin, csit_t maskEnd, char maskChar, char startChar, char endChar) const;
     MHPP("end regionizedText")
    private:
     // owned copy of input text

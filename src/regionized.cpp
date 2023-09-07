@@ -31,6 +31,10 @@ MHPP("public")
 size_t regionized::region::getLevel() const { return level; }
 MHPP("public")
 regionized::rType_e regionized::region::getRType() const { return rType; }
+MHPP("public")
+bool regionized::region::startsAt(csit_t it) const { return it == begin; }
+MHPP("public")
+bool regionized::region::contains(const regionized::region& arg) const { return (arg.begin >= begin) && (arg.end <= end); }
 
 MHPP("private")
 bool regionized::tokenFoundAtIt(const csit_t begin, const csit_t end, const std::string token) {

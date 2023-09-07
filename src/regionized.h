@@ -6,6 +6,8 @@
 #include <vector>
 typedef std::string::const_iterator csit_t;  // shouldn't do this, for the sake of brevity
 class regionizedText;
+
+// Parses C(++) code recursively into list of bracketed-/quoted-/comment regions
 class regionized {
    public:
     class region;
@@ -29,6 +31,8 @@ class regionized {
         	std::string str() const;
         	size_t getLevel() const;
         	regionized::rType_e getRType() const;
+        	bool startsAt(csit_t it) const;
+        	bool contains(const regionized::region& arg) const;
         MHPP("end regionized::region")
        private:
         const csit_t begin;

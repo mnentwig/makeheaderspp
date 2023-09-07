@@ -1,6 +1,8 @@
 #include "regionizedText.h"
 
 #include <cassert>
+#include <set>
+using std::set;
 MHPP("public")
 regionizedText::regionizedText(const std::string& text) : text(std::make_shared<std::string>(text)), regs(this->text->cbegin(), this->text->cend()) {}
 
@@ -27,17 +29,33 @@ string regionizedText::str() const { return *text; }
 
 MHPP("public")
 // maps region from internal text to "data" and fills with char.
-void regionizedText::mask(string& data, const regionized::region& reg, char maskChar) {
+void regionizedText::mask(string& data, const regionized::region& reg, char maskChar) const {
     assert(text->size() == data.size());
     mask(data, reg.begin, reg.end, maskChar);
 }
 
 MHPP("public")
+// maps region from internal text to "data" and fills with char.
+void regionizedText::mask(string& data, const regionized::region& reg, char maskChar, char startChar, char endChar) const {
+    assert(text->size() == data.size());
+    mask(data, reg.begin, reg.end, maskChar, startChar, endChar);
+}
+
+MHPP("public")
 // maps regions filtered by rType from internal text to "data" and fills with char
-void regionizedText::mask(string& data, const vector<regionized::region>& regions, regionized::rType_e rType, char maskChar) {
+void regionizedText::mask(string& data, const vector<regionized::region>& regions, regionized::rType_e rType, char maskChar) const {
     for (const regionized::region r : regions)
         if (r.getRType() == rType) {
             mask(data, r, maskChar);
+        }
+}
+
+MHPP("public")
+// maps regions filtered by rType from internal text to "data" and fills with char
+void regionizedText::mask(string& data, const vector<regionized::region>& regions, regionized::rType_e rType, char maskChar, char startChar, char endChar) const {
+    for (const regionized::region r : regions)
+        if (r.getRType() == rType) {
+            mask(data, r, maskChar, startChar, endChar);
         }
 }
 
@@ -53,7 +71,7 @@ std::vector<regionized::region> regionizedText::getRegions(csit_t iBegin, csit_t
 }
 
 MHPP("public static")
-// given an iterator it from sOrig, return an iterator to the same position in sDest (which must have the same length)
+// given an iterator it from sOrig, return an iterator to the same position in (same-sized) sDest
 csit_t regionizedText::remapIterator(const std::string& sSrc, const std::string& sDest, const csit_t it) {
     assert(sSrc.size() == sDest.size());
     assert(it >= sSrc.cbegin());
@@ -63,26 +81,26 @@ csit_t regionizedText::remapIterator(const std::string& sSrc, const std::string&
 }
 
 MHPP("public")
-// given an iterator it from external string sExt, return an iterator to the same position in object text
-csit_t regionizedText::remapExtIteratorToInt(const std::string& sExt, const csit_t it) {
+// given an iterator it from external string sExt, return an iterator to the same position in (same-sized) object text
+csit_t regionizedText::remapExtIteratorToInt(const std::string& sExt, const csit_t it) const {
     return remapIterator(/*from*/ sExt, /*to*/ *text, it);
 }
 
 MHPP("public")
 // given iterators it1, it2 from external string sExt, return iterators to the same position in object text
-std::pair<csit_t, csit_t> regionizedText::remapExtIteratorsToInt(const std::string& sExt, const pair<csit_t, csit_t> it) {
+std::pair<csit_t, csit_t> regionizedText::remapExtIteratorsToInt(const std::string& sExt, const pair<csit_t, csit_t> it) const {
     return {remapIterator(/*from*/ sExt, /*to*/ *text, it.first), remapIterator(/*from*/ sExt, /*to*/ *text, it.second)};
 }
 
 MHPP("public")
 // given iterators it1, it2 from external string sExt, refer to the same position in object text and return as string
-std::string regionizedText::remapExtIteratorsToIntStr(const std::string& sExt, const pair<csit_t, csit_t> it) {
+std::string regionizedText::remapExtIteratorsToIntStr(const std::string& sExt, const pair<csit_t, csit_t> it) const {
     return string(remapIterator(/*from*/ sExt, /*to*/ *text, it.first), remapIterator(/*from*/ sExt, /*to*/ *text, it.second));
 }
 
 MHPP("public")
 // given an iterator it from object text, return an iterator to the same position in an external string sExt
-csit_t regionizedText::remapIntIteratorToExt(const std::string& sExt, const csit_t it) {
+csit_t regionizedText::remapIntIteratorToExt(const std::string& sExt, const csit_t it) const {
     return remapIterator(/*from*/ *text, /*to*/ sExt, it);
 }
 
@@ -137,4 +155,51 @@ void regionizedText::mask(string& data, csit_t maskBegin, csit_t maskEnd, char m
     const auto itEnd = data.begin() + offsetEnd;
     while (it != itEnd)
         *(it++) = maskChar;
+}
+
+MHPP("private")
+void regionizedText::mask(string& data, csit_t maskBegin, csit_t maskEnd, char maskChar, char startChar, char endChar) const {
+    assert(maskBegin + 2 <= maskEnd);
+    assert(maskBegin >= text->cbegin());
+    assert(maskEnd <= text->cend());
+    const size_t offsetStart = maskBegin - text->cbegin();
+    const size_t offsetEnd = maskEnd - text->cbegin();
+    auto it = data.begin() + offsetStart;
+    const auto itEnd = data.begin() + offsetEnd;
+
+    *(it++) = startChar;
+    while (it != itEnd - 1)
+        *(it++) = maskChar;
+    *(it++) = endChar;
+}
+
+MHPP("public static")
+void regionizedText::testcases() {
+    assert(regionizedText(R"---(hello('\"'))---").getRegion(2).str() == string("hello('\\\"')"));  // escaped quote in char
+    assert(regionizedText("hello('a')").getRegion(0).str() == "'a'");
+    //    dumpRegions(regionizedText("print(\"she said \\\"hello\\\"\")"));
+    auto r = regionizedText("\"she said \\\"hello\\\"\"");
+    set<size_t> levels;
+    for (auto rr : r.getRegions()) {
+        levels.insert(rr.getLevel());
+        switch (rr.getLevel()) {
+            case 0:
+                assert(rr.str() == "\"she said \\\"hello\\\"\"");
+                assert(rr.getRType() == regionized::TOPLEVEL);
+                break;
+            case 1:
+                assert(rr.str() == "\"she said \\\"hello\\\"\"");
+                assert(rr.getRType() == regionized::DQUOTE);
+                break;
+            case 2:
+                assert(rr.str() == "she said \\\"hello\\\"");
+                assert(rr.getRType() == regionized::DQUOTE_BODY);
+                break;
+            default:
+                assert(false);
+        }
+    }
+    assert(levels.size() == 3);
+
+    //   assert(.getRegion(0).str() == "\"she said \\\"hello\\\"\"");  // escaped quote in string
 }
