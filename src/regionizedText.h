@@ -17,6 +17,10 @@ class regionizedText {
     	csit_t end() const;
     	// returns complete owned text
     	string str() const;
+    	// returns region start offset in owned text
+    	size_t beginOffset(const regionized::region& r) const;
+    	// returns region end offset in owned text
+    	size_t endOffset(const regionized::region& r) const;
     	// maps region from internal text to "data" and fills with char.
     	void mask(string& data, const regionized::region& reg, char maskChar) const;
     	// maps region from internal text to "data" and fills with char.
@@ -43,6 +47,8 @@ class regionizedText {
     	void regionInSource(csit_t iBegin, csit_t iEnd, bool base1, /*out*/ size_t& lineBegin, size_t& charBegin, size_t& lineEnd, size_t& charEnd) const;
     	static void testcases();
     private:
+    	// checks whether region points into owned text
+    	bool regionIsValid(const regionized::region& r) const;
     	void mask(string& data, csit_t maskBegin, csit_t maskEnd, char maskChar) const;
     	void mask(string& data, csit_t maskBegin, csit_t maskEnd, char maskChar, char startChar, char endChar) const;
     MHPP("end regionizedText")

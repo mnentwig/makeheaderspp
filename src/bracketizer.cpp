@@ -1,4 +1,5 @@
 //  g++ -O0 -g src/bracketizer.cpp -Wall -fmax-errors=1 -static -Wextra -Weffc++ -D_GLIBCXX_DEBUG
+// g++ -O0 -g src/bracketizer.cpp src/regionized.cpp src/regionizedText.cpp src/MHPP_keyword.cpp src/common.cpp -Wall -fmax-errors=1 -static -Wextra -Weffc++ -D_GLIBCXX_DEBUG
 #include <cassert>
 #include <iostream>  // debug
 #include <iterator>
@@ -7,6 +8,7 @@
 #include <set>
 #include <tuple>
 #include <vector>
+#include <fstream>
 
 #include "MHPP_keyword.h"
 #include "common.h"
@@ -22,6 +24,13 @@ using std::string, std::vector, std::tuple, std::shared_ptr;
 using std::to_string;
 class regionizedText;
 
+static string readFile(const std::string& fname) {
+    std::ostringstream oss;
+    auto s = std::ifstream(fname, std::ios::binary);
+    if (!s) throw runtime_error("failed to read '" + fname + "'");
+    oss << std::ifstream(fname, std::ios::binary).rdbuf();
+    return oss.str();
+}
 void dumpRegions(const regionizedText rText) {
     auto reg = rText.getRegions();
     cout << "arrIx\tlevel\trType\rstr\n";
@@ -52,8 +61,11 @@ MHPP("bla")
     )---");
     //   text = R"ZZZ(u8R"xxx(blabla)xxx")ZZZ";
     text = R"ZZZ(MHPP("public")
-std::map<int, int> myClass::myTemplateReturnTypeWithCommaSpace() { return std::map<int, int>(); })ZZZ";
+std::map<int, int> myClass::myTemplateReturnTypeWithCommaSpace() { return std::map<int, int>(); }
+MHPP("public")
+int myClass2::gumbo() { return std::map<int, int>(); })ZZZ";
     regionizedText res = regionizedText(text);
+#if false
     for (auto r : res.getRegions())
         cout << r.getLevel() << "\t" << r.getRType() << "\t" << r.str() << endl;
 
@@ -118,9 +130,13 @@ std::map<int, int> myClass::myTemplateReturnTypeWithCommaSpace() { return std::m
         string term = res.remapExtIteratorsToIntStr(blanked, match_terminator);
         cout << term << endl;
         cout << match_declaration << endl;
-        MHPP_keyword::parse(res, "no filename");
-        //            res.regionInSource
-        //           if (MHPP_argV.size() != 1)throw runtime_error(res.
-    }
+    //            res.regionInSource
+    //           if (MHPP_argV.size() != 1)throw runtime_error(res.
+} 
+#endif
+const string fname = string("tests/test.cpp");
+    regionizedText res2 = regionizedText(readFile(fname));
+
+    MHPP_keyword::parse(res2, string(fname));
     return 0;
 }

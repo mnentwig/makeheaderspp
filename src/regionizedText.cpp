@@ -28,6 +28,23 @@ MHPP("public")
 string regionizedText::str() const { return *text; }
 
 MHPP("public")
+// returns region start offset in owned text
+size_t regionizedText::beginOffset(const regionized::region& r) const { assert(regionIsValid(r)); return r.begin - text->cbegin(); }
+
+MHPP("public")
+// returns region end offset in owned text
+size_t regionizedText::endOffset(const regionized::region& r) const { assert(regionIsValid(r)); return r.end - text->cbegin(); }
+
+MHPP("private")
+// checks whether region points into owned text
+bool regionizedText::regionIsValid(const regionized::region& r) const {
+    if (r.begin < text->cbegin()) return false;
+    if (r.end > text->cend()) return false;
+    if (r.end < r.begin) return false;
+    return true;
+}
+
+MHPP("public")
 // maps region from internal text to "data" and fills with char.
 void regionizedText::mask(string& data, const regionized::region& reg, char maskChar) const {
     assert(text->size() == data.size());
