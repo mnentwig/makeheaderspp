@@ -85,6 +85,7 @@ std::tuple<stringRegion, vector<stringRegion>, stringRegion> stringRegion::regex
 }
 
 MHPP("public")
+// splits input text into sequence of non-matches and matches. Returns {nonMatch, match} with nonMatch.size() == match.size()+1
 std::tuple<vector<stringRegion>, vector<vector<stringRegion>>> stringRegion::regexMatchNonMatch(const std::regex& r) {
     stringRegion cursor = *this;
     vector<stringRegion> retvalNonMatch;
@@ -101,12 +102,46 @@ std::tuple<vector<stringRegion>, vector<vector<stringRegion>>> stringRegion::reg
     return {retvalNonMatch, retvalMatch};
 }
 
+MHPP("public")
+// remaps to new string (or non-const same string) and returns {begin, end} iterators. Note: Non-const variant, use for modifying
+std::tuple<string::iterator, string::iterator> stringRegion::beginEnd(string& s) const {
+    assert(s.size() == size() && "string size mismatch");
+    return {s.begin() + offsetBegin, s.begin() + offsetEnd};
+}
+
 #define TEST_STRINGREGION
 #ifdef TEST_STRINGREGION
 #include <iostream>
 using std::regex, std::cout, std::endl;
 
+void e1() {
+    // perform regex match manipulation on input string
+    string src("a quick  brown   fox  jumps over   the  lazy     dog");
+    string re1("a_quick__brown___fox__jumps_over___the__lazy_____dog");  // result on src
+
+    // perform same manipulation on alternative string
+    string alt("                                                    ");  // same length as src
+    string re2(" _     __     ___   __     _    ___   __    _____   ");  // result on alt
+
+    stringRegion rSrc(src);
+    regex r("\\s+");
+    const auto [nonMatch, match] = rSrc.regexMatchNonMatch(r);
+    for (const auto& m : match) {
+        assert(m.size() == 1 /*only full expression, no capture groups*/);
+        // get non-const iterators
+        auto [iBegin, iEnd] = m[0].beginEnd(src);
+        for (auto it = iBegin; it != iEnd; ++it)
+            *it = '_';
+        auto [iBegin2, iEnd2] = m[0].beginEnd(alt);
+        for (auto it = iBegin2; it != iEnd2; ++it)
+            *it = '_';
+    }
+    assert(src == re1);
+    assert(alt == re2);
+}
+
 int main(void) {
+    e1();
     string src("a quick brown fox jumps over the lazy dog");
     stringRegion rSrc(src);
     regex r1(".*\\s(\\S{5})\\s.*");

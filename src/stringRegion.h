@@ -32,14 +32,21 @@ class stringRegion {
     	vector<stringRegion> regex_match(std::regex r);
     	// regex_search on string region. Returns prefix, matches, postfix (matches.size()==0 if fail, otherwise full match plus captures)
     	std::tuple<stringRegion, vector<stringRegion>, stringRegion> regex_search(const std::regex& r);
+    	// splits input text into sequence of non-matches and matches. Returns {nonMatch, match} with nonMatch.size() == match.size()+1
     	std::tuple<vector<stringRegion>, vector<vector<stringRegion>>> regexMatchNonMatch(const std::regex& r);
+    	// remaps to new string (or non-const same string) and returns {begin, end} iterators. Note: Non-const variant, use for modifying
+    	std::tuple<string::iterator, string::iterator> beginEnd(string& s) const;
     private:
     	// region of regex submatch in s
     	stringRegion(const string::const_iterator sBegin, const string::const_iterator sEnd, const std::ssub_match& subMatch);
     MHPP("end stringRegion")
    private:
+    // referenced string start
     string::const_iterator sBegin;
+    // referenced string start
     string::const_iterator sEnd;
+    // this region starts at offset into referenced string
     size_t offsetBegin;
+    // this region ends at offset into referenced string
     size_t offsetEnd;
 };
