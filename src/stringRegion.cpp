@@ -2,15 +2,15 @@
 
 #include <cassert>
 MHPP("public")
-// empty region
+// construct empty
 stringRegion::stringRegion() : sBegin(nullptr), sEnd(nullptr), offsetBegin(0), offsetEnd(0) {}
 
 MHPP("public")
-// region spanning whole s
+// construct spanning whole s
 stringRegion::stringRegion(const string& s) : sBegin(s.cbegin()), sEnd(s.cend()), offsetBegin(0), offsetEnd(s.size()) {}
 
 MHPP("public")
-// region begin..end in s
+// construct spanning begin..end in s
 stringRegion::stringRegion(const string& s, string::const_iterator begin, string::const_iterator end) : sBegin(s.begin()), sEnd(s.end()), offsetBegin(begin - s.begin()), offsetEnd(end - s.begin()) {
     assert(begin >= sBegin && "given begin iterator is outside string");
     assert(end <= sEnd && "given end iterator is outside string");
@@ -18,7 +18,15 @@ stringRegion::stringRegion(const string& s, string::const_iterator begin, string
 }
 
 MHPP("public")
-// region of regex submatch in s
+// construct spanning offsetBegin..offsetEnd in s
+stringRegion::stringRegion(const string& s, size_t offsetBegin, size_t offsetEnd) : sBegin(s.cbegin()), sEnd(s.cend()), offsetBegin(offsetBegin), offsetEnd(offsetEnd) {}
+
+MHPP("public")
+// construct offsetBegin..offsetEnd in sBegin..sEnd
+stringRegion::stringRegion(const string::const_iterator sBegin, const string::const_iterator sEnd, size_t offsetBegin, size_t offsetEnd) : sBegin(sBegin), sEnd(sEnd), offsetBegin(offsetBegin), offsetEnd(offsetEnd) {}
+
+MHPP("public")
+// construct region of regex submatch in s
 stringRegion::stringRegion(const string& s, const std::ssub_match& subMatch) : sBegin(s.cbegin()), sEnd(s.cend()), offsetBegin(subMatch.first - s.begin()), offsetEnd(subMatch.second - s.begin()) {
     assert(subMatch.first >= s.begin() && "given submatch.first is outside string");
     assert(subMatch.second <= s.end() && "given submatch.second is outside string");
@@ -26,7 +34,7 @@ stringRegion::stringRegion(const string& s, const std::ssub_match& subMatch) : s
 }
 
 MHPP("private")
-// region of regex submatch in s
+// construct region of regex submatch in sBegin..sEnd
 stringRegion::stringRegion(const string::const_iterator sBegin, const string::const_iterator sEnd, const std::ssub_match& subMatch) : sBegin(sBegin), sEnd(sEnd), offsetBegin(subMatch.first - sBegin), offsetEnd(subMatch.second - sBegin) {
     assert(subMatch.first >= sBegin && "given submatch.first is outside string");
     assert(subMatch.second <= sEnd && "given submatch.second is outside string");
@@ -40,7 +48,7 @@ size_t stringRegion::size() const {
 }
 
 MHPP("public")
-// creates region with same relative position in new string of same size
+// construct relative position of src applied to newS (must have same size as src)
 stringRegion::stringRegion(const stringRegion& src, const string& newS) : sBegin(newS.cbegin()), sEnd(newS.cend()), offsetBegin(src.offsetBegin), offsetEnd(src.offsetEnd) {
     assert(src.size() == size() && "attempt to transfer stringRegion to a string of different length");
 }
@@ -53,7 +61,7 @@ string stringRegion::str() const {
 
 MHPP("public")
 // std::regex_match on content. Returns matches (matches.size()==0 if fail, otherwise full match plus captures)
-vector<stringRegion> stringRegion::regex_match(std::regex r) {
+vector<stringRegion> stringRegion::regex_match(std::regex r) const {
     std::smatch m;
     bool mres = std::regex_match(sBegin + offsetBegin, sBegin + offsetEnd, m, r);
 
@@ -67,7 +75,7 @@ vector<stringRegion> stringRegion::regex_match(std::regex r) {
 
 MHPP("public")
 // regex_search on string region. Returns prefix, matches, postfix (matches.size()==0 if fail, otherwise full match plus captures)
-std::tuple<stringRegion, vector<stringRegion>, stringRegion> stringRegion::regex_search(const std::regex& r) {
+std::tuple<stringRegion, vector<stringRegion>, stringRegion> stringRegion::regex_search(const std::regex& r) const {
     std::smatch m;
     bool mres = std::regex_search(sBegin + offsetBegin, sBegin + offsetEnd, m, r);
 
@@ -86,7 +94,7 @@ std::tuple<stringRegion, vector<stringRegion>, stringRegion> stringRegion::regex
 
 MHPP("public")
 // splits input text into sequence of non-matches and matches. Returns {nonMatch, match} with nonMatch.size() == match.size()+1
-std::tuple<vector<stringRegion>, vector<vector<stringRegion>>> stringRegion::regexMatchNonMatch(const std::regex& r) {
+std::tuple<vector<stringRegion>, vector<vector<stringRegion>>> stringRegion::regexMatchNonMatch(const std::regex& r) const {
     stringRegion cursor = *this;
     vector<stringRegion> retvalNonMatch;
     vector<vector<stringRegion>> retvalMatch;
@@ -109,7 +117,7 @@ std::tuple<string::iterator, string::iterator> stringRegion::beginEnd(string& s)
     return {s.begin() + offsetBegin, s.begin() + offsetEnd};
 }
 
-#define TEST_STRINGREGION
+// #define TEST_STRINGREGION
 #ifdef TEST_STRINGREGION
 #include <iostream>
 using std::regex, std::cout, std::endl;

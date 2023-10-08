@@ -6,6 +6,7 @@
 #include <tuple>
 
 #include "common.h"
+#include "stringRegion.h"
 
 using std::smatch, std::to_string, std::runtime_error, std::pair;
 
@@ -15,6 +16,7 @@ string grp(string arg) { return "(?:" + arg + ")"; };
 string grp(string qual, string arg) { return "(?:" + arg + ")" + qual; }
 string optGrp(string arg) { return "(?:" + arg + ")?"; };
 string capture(string arg) { return "(" + arg + ")"; };
+string capture(string qual, string arg) { return "(" + arg + ")" + qual; };
 const string CIdentifier = string("[a-zA-Z_][a-zA-Z0-9_]*");
 // C++ class path separator, allowing whitespace
 const string doubleColon = string("(?:\\s*::\\s*)");
@@ -32,6 +34,71 @@ pair<string::iterator, string::iterator> offset2it(string &s, pair<size_t, size_
     return {offset2it(s, offset.first), offset2it(s, offset.second)};
 }
 };  // namespace regexTooling
+
+struct parseMethodResult {
+    parseMethodResult() : comment(), retValQual(), retType(), methodClassName(), methodName(), methodQualifiers() {}  // -effC++
+    stringRegion comment;
+    stringRegion retValQual;
+    stringRegion retType;
+    stringRegion methodClassName;
+    stringRegion methodName;
+    stringRegion methodQualifiers;
+};
+
+static parseMethodResult parseMethod(const stringRegion &rMasked, const string &unmasked) {
+    namespace rt = regexTooling;
+    using std::regex_match, std::regex;
+
+    const string doubleColonSep = string("\\s*::\\s*");
+    const string cName = string("[a-zA-Z_][a-zA-Z0-9_]*");
+    const string aType = rt::grp("?", doubleColonSep) + cName + rt::grp("*", doubleColonSep + cName);
+    const string maybeTilde = "~?";
+    const string cppOperator = "operator\\s*[\\+\\-\\*\\/\\|a-zA-Z0-9_\\^]+";
+    const string srDecl =
+        // [1] comment / whitespace
+        rt::capture("\\s*") +
+        // [2] return value qualifiers
+        rt::capture(rt::grp("*", rt::grp("const\\s+") + "|" +
+                                     rt::grp("volatile\\s+") + "|" +
+                                     rt::grp("constexpr\\s+"))) +
+        // [3] return type
+        rt::grp("?", rt::capture(aType) + "\\s+") +
+
+        // [4] method class name
+        rt::capture(rt::grp("?", aType)) +
+
+        // :: separating method class and name
+        doubleColonSep +
+
+        // [5] method name
+        rt::capture(rt::grp(maybeTilde + cName) + "|" +
+                    rt::grp(cppOperator)) +
+
+        // [6] method qualifiers
+        rt::capture(rt::grp("?",
+                            rt::grp("const\\s+") + "|" +
+                                rt::grp("volatile\\s+") + "|" +
+                                rt::grp("noexcept"))) +
+        "\\s*";
+
+    std::regex rDecl = std::regex(srDecl);
+    std::cout << srDecl << std::endl;
+    std::cout << "trying to match: " << std::endl
+              << rMasked.str() << std::endl;
+
+    const auto capt = rMasked.regex_match(regex(srDecl));
+    if (capt.size() == 0) throw runtime_error("TBD: decl not matched");
+    for (size_t ix = 0; ix < capt.size(); ++ix)
+        std::cout << ix << "\t" << capt[ix].str() << std::endl;
+    parseMethodResult r;
+    r.comment = capt[1];
+    r.retValQual = capt[2];
+    r.retType = capt[3];
+    r.methodClassName = capt[4];
+    r.methodName = capt[5];
+    r.methodQualifiers = capt[6];
+    return r;
+}
 
 MHPP("public static")
 vector<MHPP_keyword> MHPP_keyword::parse(const regionizedText &t, const string &filenameForError) {
@@ -105,63 +172,35 @@ vector<MHPP_keyword> MHPP_keyword::parse(const regionizedText &t, const string &
         std::cout << dblQuotArg.str() << std::endl;
 
         // === end of MHPP("") start of C++ declaration ===
-        // search for opening curly bracket or semicolon
+        // search for opening round bracket or semicolon
         csit_t iTerminator = dblQuotArg.getEnd();
         bool isFunc = false;
         bool isVar = false;
         while (iTerminator != t.end()) {
-            if (*iTerminator == '{') {
+            if (*iTerminator == '(') {
                 isFunc = true;
                 break;
-            } else if (*iTerminator == ';') {
+            } else if (*iTerminator == ';') {  // var definition without init value
+                isVar = true;
+                break;
+            } else if (*iTerminator == '=') {  // var definition with init value
                 isVar = true;
                 break;
             }
             ++iTerminator;
         }
         if (!isFunc && !isVar)
-           throw runtime_error(common::errmsg(t, t.remapExtIteratorToInt(masked, s[0].first), t.remapExtIteratorToInt(masked, s[0].second), filenameForError, "MHPP() failed to locate either open curly bracket or semicolon"));
-throw runtime_error("got it") ;
+            throw runtime_error(common::errmsg(t, t.remapExtIteratorToInt(masked, s[0].first), t.remapExtIteratorToInt(masked, s[0].second), filenameForError, "MHPP() failed to locate either open curly bracket or semicolon"));
         // start parsing for a C++ declaration after the closing round bracket.
         // There can be a comment which will be copied to the header, to be extracted later
-        size_t offsetDeclBody = t.endOffset(rndBrkReg);
-
-        namespace rt = regexTooling;
-        using std::regex_match, std::regex;
-
-        const string doubleColonSep = string("\\s*::\\s*");
-        const string cName = string("[a-zA-Z_][a-zA-Z0-9_]*");
-        const string aType = rt::grp("?", doubleColonSep) + cName + rt::grp("*", doubleColonSep + cName);
-        const string maybeTilde = "~?";
-        const string srDecl =
-            rt::capture(rt::grp("?", rt::grp("const\\s+") + "|" +
-                                         rt::grp("volatile\\s+") + "|" +
-                                         rt::grp("constexpr\\s+"))) +
-            // class name
-            rt::capture(rt::grp("?", aType)) +
-
-            // separated by ::
-            doubleColonSep +
-
-            // method name
-            rt::capture(maybeTilde + cName) +
-            rt::capture(rt::grp("?",
-                                rt::grp("const\\s+") + "|" +
-                                    rt::grp("volatile\\s+") + "|" +
-                                    rt::grp("noexcept"))) +
-            "\\s*";
-
-        std::regex rDecl = std::regex(srDecl);
-        std::cout << srDecl << std::endl;
-        string st = string(masked2.cbegin() + offsetDeclBody, masked2.cend());
-        std::cout << "trying to match: " << std::endl
-                  << st << std::endl;
-
-        std::smatch m;
-        if (std::regex_match(st, m, rDecl)) {
-                std::cout << "match!" << std::endl;
-                for (size_t ix = 0; ix < m.size(); ++ix)
-                    std::cout << ix << "\t" << m[ix].str() << std::endl;
+        size_t declBodyOffsetBegin = t.endOffset(rndBrkReg);
+        size_t declBodyOffsetEnd = iTerminator - t.begin();
+        if (isFunc) {
+            stringRegion rDecl(masked2, declBodyOffsetBegin, declBodyOffsetEnd);
+            std::cout << rDecl.str() << std::endl;
+            parseMethod(rDecl, t.str());
+            // throw runtime_error("done");
+        } else if (isVar) {
         }
     }
 
