@@ -134,7 +134,7 @@ int myClass2::gumbo() { return std::map<int, int>(); })ZZZ";
     //           if (MHPP_argV.size() != 1)throw runtime_error(res.
 } 
 #endif
-const string fname = string("tests/test.cpp");
+const string fname = string("tests/test2.cpp");
     regionizedText res2 = regionizedText(readFile(fname));
 
     MHPP_keyword::parse(res2, string(fname));

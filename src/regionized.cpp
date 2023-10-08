@@ -24,13 +24,21 @@ MHPP("public")
 std::vector<regionized::region> regionized::getRegions() const { return regions; }
 
 MHPP("public")
+regionized::region::region() : begin(nullptr), end(nullptr), level(0), rType(regionized::rType_e::INVALID) {}
+MHPP("public")
 regionized::region::region(csit_t begin, csit_t end, size_t level, regionized::rType_e rType) : begin(begin), end(end), level(level), rType(rType) {}
 MHPP("public")
 std::string regionized::region::str() const { return string(begin, end); }
 MHPP("public")
 size_t regionized::region::getLevel() const { return level; }
 MHPP("public")
+csit_t regionized::region::getBegin() const{ return begin;}
+MHPP("public")
+csit_t regionized::region::getEnd() const{ return end;}
+MHPP("public")
 regionized::rType_e regionized::region::getRType() const { return rType; }
+MHPP("public")
+bool regionized::region::isValid() const { return rType != regionized::rType_e::INVALID; }
 MHPP("public")
 bool regionized::region::startsAt(csit_t it) const { return it == begin; }
 MHPP("public")
