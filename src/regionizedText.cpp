@@ -24,16 +24,26 @@ MHPP("public")
 csit_t regionizedText::end() const { return text->cend(); }
 
 MHPP("public")
-// returns complete owned text
+// returns complete owned text (copies)
 string regionizedText::str() const { return *text; }
 
 MHPP("public")
+// returns complete owned text (sharedPtr)
+const std::shared_ptr<const string> regionizedText::strPtr() const { return text; }
+
+MHPP("public")
 // returns region start offset in owned text
-size_t regionizedText::beginOffset(const regionized::region& r) const { assert(regionIsValid(r)); return r.begin - text->cbegin(); }
+size_t regionizedText::beginOffset(const regionized::region& r) const {
+    assert(regionIsValid(r));
+    return r.begin - text->cbegin();
+}
 
 MHPP("public")
 // returns region end offset in owned text
-size_t regionizedText::endOffset(const regionized::region& r) const { assert(regionIsValid(r)); return r.end - text->cbegin(); }
+size_t regionizedText::endOffset(const regionized::region& r) const {
+    assert(regionIsValid(r));
+    return r.end - text->cbegin();
+}
 
 MHPP("private")
 // checks whether region points into owned text

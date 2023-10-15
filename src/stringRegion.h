@@ -17,19 +17,23 @@ class stringRegion {
     	// construct empty
     	stringRegion();
     	// construct spanning whole s
-    	stringRegion(const string& s);
+    	stringRegion(std::reference_wrapper<const string> s);
     	// construct spanning begin..end in s
-    	stringRegion(const string& s, string::const_iterator begin, string::const_iterator end);
+    	stringRegion(std::reference_wrapper<const string> s, string::const_iterator begin, string::const_iterator end);
     	// construct spanning offsetBegin..offsetEnd in s
-    	stringRegion(const string& s, size_t offsetBegin, size_t offsetEnd);
+    	stringRegion(std::reference_wrapper<const string> s, size_t offsetBegin, size_t offsetEnd);
+    	// construct spanning offsetBegin..offsetEnd in s
+    	stringRegion(const std::shared_ptr<const string> s, size_t offsetBegin, size_t offsetEnd);
     	// construct offsetBegin..offsetEnd in sBegin..sEnd
     	stringRegion(const string::const_iterator sBegin, const string::const_iterator sEnd, size_t offsetBegin, size_t offsetEnd);
     	// construct region of regex submatch in s
-    	stringRegion(const string& s, const std::ssub_match& subMatch);
+    	stringRegion(std::reference_wrapper<const string> s, const std::ssub_match& subMatch);
+    	// construct stringRegion for relative position from src on newS (which must have same size as src)
+    	stringRegion(const stringRegion& src, std::reference_wrapper<const string> newS);
+    	// replace underlying string with newS (which must hve same size)
+    	void rebase(std::reference_wrapper<const string> newS);
     	// returns length
     	size_t size() const;
-    	// construct relative position of src applied to newS (must have same size as src)
-    	stringRegion(const stringRegion& src, const string& newS);
     	// creates new string with content of referenced region
     	string str() const;
     	// std::regex_match on content. Returns matches (matches.size()==0 if fail, otherwise full match plus captures)
@@ -40,6 +44,8 @@ class stringRegion {
     	std::tuple<vector<stringRegion>, vector<vector<stringRegion>>> regexMatchNonMatch(const std::regex& r) const;
     	// remaps to new string (or non-const same string) and returns {begin, end} iterators. Note: Non-const variant, use for modifying
     	std::tuple<string::iterator, string::iterator> beginEnd(string& s) const;
+    	// returns line-/character position of substring in source
+    	void regionInSource(bool base1, /*out*/ size_t& lineBegin, size_t& charBegin, size_t& lineEnd, size_t& charEnd) const;
     private:
     	// construct region of regex submatch in sBegin..sEnd
     	stringRegion(const string::const_iterator sBegin, const string::const_iterator sEnd, const std::ssub_match& subMatch);

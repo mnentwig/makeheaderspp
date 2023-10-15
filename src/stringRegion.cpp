@@ -1,17 +1,20 @@
 #include "stringRegion.h"
 
 #include <cassert>
+
+// note: Using std::reference_wrapper<string> prevents temporaries (caller must guarantee lifetime of string)
+
 MHPP("public")
 // construct empty
 stringRegion::stringRegion() : sBegin(nullptr), sEnd(nullptr), offsetBegin(0), offsetEnd(0) {}
 
 MHPP("public")
 // construct spanning whole s
-stringRegion::stringRegion(const string& s) : sBegin(s.cbegin()), sEnd(s.cend()), offsetBegin(0), offsetEnd(s.size()) {}
+stringRegion::stringRegion(std::reference_wrapper<const string> s) : sBegin(s.get().cbegin()), sEnd(s.get().cend()), offsetBegin(0), offsetEnd(s.get().size()) {}
 
 MHPP("public")
 // construct spanning begin..end in s
-stringRegion::stringRegion(const string& s, string::const_iterator begin, string::const_iterator end) : sBegin(s.begin()), sEnd(s.end()), offsetBegin(begin - s.begin()), offsetEnd(end - s.begin()) {
+stringRegion::stringRegion(std::reference_wrapper<const string> s, string::const_iterator begin, string::const_iterator end) : sBegin(s.get().begin()), sEnd(s.get().end()), offsetBegin(begin - s.get().begin()), offsetEnd(end - s.get().begin()) {
     assert(begin >= sBegin && "given begin iterator is outside string");
     assert(end <= sEnd && "given end iterator is outside string");
     assert(end >= begin && "invalid iterators: end < begin");
@@ -19,7 +22,11 @@ stringRegion::stringRegion(const string& s, string::const_iterator begin, string
 
 MHPP("public")
 // construct spanning offsetBegin..offsetEnd in s
-stringRegion::stringRegion(const string& s, size_t offsetBegin, size_t offsetEnd) : sBegin(s.cbegin()), sEnd(s.cend()), offsetBegin(offsetBegin), offsetEnd(offsetEnd) {}
+stringRegion::stringRegion(std::reference_wrapper<const string> s, size_t offsetBegin, size_t offsetEnd) : sBegin(s.get().cbegin()), sEnd(s.get().cend()), offsetBegin(offsetBegin), offsetEnd(offsetEnd) {}
+
+MHPP("public")
+// construct spanning offsetBegin..offsetEnd in s
+stringRegion::stringRegion(const std::shared_ptr<const string> s, size_t offsetBegin, size_t offsetEnd) : sBegin(s->cbegin()), sEnd(s->cend()), offsetBegin(offsetBegin), offsetEnd(offsetEnd) {}
 
 MHPP("public")
 // construct offsetBegin..offsetEnd in sBegin..sEnd
@@ -27,9 +34,13 @@ stringRegion::stringRegion(const string::const_iterator sBegin, const string::co
 
 MHPP("public")
 // construct region of regex submatch in s
-stringRegion::stringRegion(const string& s, const std::ssub_match& subMatch) : sBegin(s.cbegin()), sEnd(s.cend()), offsetBegin(subMatch.first - s.begin()), offsetEnd(subMatch.second - s.begin()) {
-    assert(subMatch.first >= s.begin() && "given submatch.first is outside string");
-    assert(subMatch.second <= s.end() && "given submatch.second is outside string");
+stringRegion::stringRegion(std::reference_wrapper<const string> s, const std::ssub_match& subMatch)
+    : sBegin(s.get().cbegin()),
+      sEnd(s.get().cend()),
+      offsetBegin(subMatch.first - s.get().begin()),
+      offsetEnd(subMatch.second - s.get().begin()) {
+    assert(subMatch.first >= s.get().begin() && "given submatch.first is outside string");
+    assert(subMatch.second <= s.get().end() && "given submatch.second is outside string");
     assert(subMatch.second >= subMatch.first && "??? reverse submatch ???");
 }
 
@@ -42,15 +53,26 @@ stringRegion::stringRegion(const string::const_iterator sBegin, const string::co
 }
 
 MHPP("public")
-// returns length
-size_t stringRegion::size() const {
-    return sEnd - sBegin;
+// construct stringRegion for relative position from src on newS (which must have same size as src)
+stringRegion::stringRegion(const stringRegion& src, std::reference_wrapper<const string> newS) : sBegin(newS.get().cbegin()), sEnd(newS.get().cend()), offsetBegin(src.offsetBegin), offsetEnd(src.offsetEnd) {
+    assert(src.size() == size() && "attempt to transfer stringRegion to a string of different length");
 }
 
 MHPP("public")
-// construct relative position of src applied to newS (must have same size as src)
-stringRegion::stringRegion(const stringRegion& src, const string& newS) : sBegin(newS.cbegin()), sEnd(newS.cend()), offsetBegin(src.offsetBegin), offsetEnd(src.offsetEnd) {
-    assert(src.size() == size() && "attempt to transfer stringRegion to a string of different length");
+// replace underlying string with newS (which must hve same size)
+void stringRegion::rebase(std::reference_wrapper<const string> newS) {
+    assert(sEnd >= sBegin);
+    const size_t baseSize = sEnd - sBegin;
+    assert(baseSize == newS.get().size() && "stringRegion rebase() to different length input");
+    sBegin = newS.get().cbegin();
+    sEnd = newS.get().cend();
+}
+
+MHPP("public")
+// returns length
+size_t stringRegion::size() const {
+    assert(offsetEnd >= offsetBegin);
+    return offsetEnd - offsetBegin;
 }
 
 MHPP("public")
@@ -115,6 +137,40 @@ MHPP("public")
 std::tuple<string::iterator, string::iterator> stringRegion::beginEnd(string& s) const {
     assert(s.size() == size() && "string size mismatch");
     return {s.begin() + offsetBegin, s.begin() + offsetEnd};
+}
+
+MHPP("public")
+// returns line-/character position of substring in source
+void stringRegion::regionInSource(bool base1, /*out*/ size_t& lineBegin, size_t& charBegin, size_t& lineEnd, size_t& charEnd) const {
+    size_t lcount = 0;
+    size_t ccount = 0;
+
+    // === start ===
+    const size_t offset = base1 ? 1 : 0;
+    for (size_t ix = 0; ix < offsetBegin; ++ix) {
+        const char c = *(sBegin + ix);
+        if (c == '\n') {
+            ++lcount;
+            ccount = 0;
+        } else {
+            ++ccount;
+        }
+    }
+    lineBegin = lcount + offset;
+    charBegin = ccount + offset;
+
+    // === end ===
+    for (size_t ix = offsetBegin; ix < offsetEnd; ++ix) {
+        const char c = *(sBegin + ix);
+        if (c == '\n') {
+            ++lcount;
+            ccount = 0;
+        } else {
+            ++ccount;
+        }
+    }
+    lineEnd = lcount + offset;
+    charEnd = ccount + offset;
 }
 
 // #define TEST_STRINGREGION

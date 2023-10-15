@@ -45,11 +45,11 @@ struct parseMethodResult {
     stringRegion methodQualifiers;
 };
 
-static parseMethodResult parseMethod(const stringRegion &rMasked, const string &unmasked) {
+static parseMethodResult parseMethod(const stringRegion &rMasked, const string &unmasked, const string &filenameForError) {
     namespace rt = regexTooling;
     using std::regex_match, std::regex;
 
-    const string doubleColonSep = string("\\s*::\\s*");
+    const string doubleColonSep = string("\\s*::\\s*");  // :: with possible whitespaces on either side
     const string cName = string("[a-zA-Z_][a-zA-Z0-9_]*");
     const string aType = rt::grp("?", doubleColonSep) + cName + rt::grp("*", doubleColonSep + cName);
     const string maybeTilde = "~?";
@@ -58,28 +58,31 @@ static parseMethodResult parseMethod(const stringRegion &rMasked, const string &
         // [1] comment / whitespace
         rt::capture("\\s*") +
         // [2] return value qualifiers
-        rt::capture(rt::grp("*", rt::grp("const\\s+") + "|" +
-                                     rt::grp("volatile\\s+") + "|" +
-                                     rt::grp("constexpr\\s+"))) +
-        // [3] return type
+        rt::capture("*",          // whole capture is optional
+                    rt::grp("+",  // any combination (and repetitions)
+                            rt::grp("const\\s+") + "|" +
+                                rt::grp("volatile\\s+") + "|" +
+                                rt::grp("constexpr\\s+"))) +
+        // [3] return type (optional for destructor)
         rt::grp("?", rt::capture(aType) + "\\s+") +
 
         // [4] method class name
-        rt::capture(rt::grp("?", aType)) +
+        rt::capture(aType) +
 
         // :: separating method class and name
         doubleColonSep +
 
-        // [5] method name
+        // [5] method name or operator
         rt::capture(rt::grp(maybeTilde + cName) + "|" +
                     rt::grp(cppOperator)) +
 
-        // [6] method qualifiers
-        rt::capture(rt::grp("?",
-                            rt::grp("const\\s+") + "|" +
-                                rt::grp("volatile\\s+") + "|" +
-                                rt::grp("noexcept"))) +
-        "\\s*";
+        // [6] method qualifiers (WS required on left side to separate from method name)
+        rt::capture(rt::grp("?",          // optional
+                            rt::grp("+",  // any combination (and repetitions)
+                                    rt::grp("\\s+const") + "|" +
+                                        rt::grp("\\s+volatile") + "|" +
+                                        rt::grp("\\s+noexcept")))) +
+        "\\s*";  // Ws before opening curly bracket of implementation
 
     std::regex rDecl = std::regex(srDecl);
     std::cout << srDecl << std::endl;
@@ -87,7 +90,9 @@ static parseMethodResult parseMethod(const stringRegion &rMasked, const string &
               << rMasked.str() << std::endl;
 
     const auto capt = rMasked.regex_match(regex(srDecl));
-    if (capt.size() == 0) throw runtime_error("TBD: decl not matched");
+    if (capt.size() == 0)
+        throw runtime_error(common::errmsg(stringRegion(rMasked, unmasked), filenameForError, "failed to parse method (constructor, destructor, operator) declaration"));
+
     for (size_t ix = 0; ix < capt.size(); ++ix)
         std::cout << ix << "\t" << capt[ix].str() << std::endl;
     parseMethodResult r;
@@ -97,6 +102,7 @@ static parseMethodResult parseMethod(const stringRegion &rMasked, const string &
     r.methodClassName = capt[4];
     r.methodName = capt[5];
     r.methodQualifiers = capt[6];
+    r.comment.rebase(unmasked);
     return r;
 }
 
@@ -108,6 +114,7 @@ vector<MHPP_keyword> MHPP_keyword::parse(const regionizedText &t, const string &
     std::vector<regionized::region> regs = t.getRegions();
 
     // === mask irrelevant regions for command regex search (literal strings, comments) ===
+    string unmasked = t.str();
     string masked = t.str();
     t.mask(masked, regs, regionized::rType_e::SQUOTE, ' ');
     t.mask(masked, regs, regionized::rType_e::DQUOTE, ' ');
@@ -173,34 +180,33 @@ vector<MHPP_keyword> MHPP_keyword::parse(const regionizedText &t, const string &
 
         // === end of MHPP("") start of C++ declaration ===
         // search for opening round bracket or semicolon
-        csit_t iTerminator = dblQuotArg.getEnd();
-        bool isFunc = false;
-        bool isVar = false;
-        while (iTerminator != t.end()) {
-            if (*iTerminator == '(') {
-                isFunc = true;
-                break;
-            } else if (*iTerminator == ';') {  // var definition without init value
-                isVar = true;
-                break;
-            } else if (*iTerminator == '=') {  // var definition with init value
-                isVar = true;
+
+        size_t declBodyOffsetBegin = rndBrkReg.getEnd() - t.begin();
+        size_t declBodyOffsetEnd = masked.find_first_of(";=(", declBodyOffsetBegin);
+        if (declBodyOffsetEnd == string::npos)
+            throw runtime_error(common::errmsg(t, t.remapExtIteratorToInt(masked, s[0].first), t.remapExtIteratorToInt(masked, s[0].second), filenameForError, "MHPP() failed to locate either open curly bracket or semicolon"));
+        char cTerm = masked[declBodyOffsetEnd];
+        enum { INVALID,
+               FUNC,
+               VAR } parseVariant =
+            (cTerm == '(')   ? FUNC  // argument list: code block must be function
+            : (cTerm == '=') ? FUNC  // init value assignment must be var
+            : (cTerm == ';') ? VAR   // neither of above at semicolon => variable definition without init value
+                             : INVALID;
+
+        switch (parseVariant) {
+            case FUNC: {
+                stringRegion rDecl(masked2, declBodyOffsetBegin, declBodyOffsetEnd);
+                std::cout << rDecl.str() << std::endl;
+                parseMethod(rDecl, unmasked, filenameForError);
+                // throw runtime_error("done");
                 break;
             }
-            ++iTerminator;
-        }
-        if (!isFunc && !isVar)
-            throw runtime_error(common::errmsg(t, t.remapExtIteratorToInt(masked, s[0].first), t.remapExtIteratorToInt(masked, s[0].second), filenameForError, "MHPP() failed to locate either open curly bracket or semicolon"));
-        // start parsing for a C++ declaration after the closing round bracket.
-        // There can be a comment which will be copied to the header, to be extracted later
-        size_t declBodyOffsetBegin = t.endOffset(rndBrkReg);
-        size_t declBodyOffsetEnd = iTerminator - t.begin();
-        if (isFunc) {
-            stringRegion rDecl(masked2, declBodyOffsetBegin, declBodyOffsetEnd);
-            std::cout << rDecl.str() << std::endl;
-            parseMethod(rDecl, t.str());
-            // throw runtime_error("done");
-        } else if (isVar) {
+            case VAR:
+                break;
+            case INVALID:
+            default:
+                assert(false && "impossible");
         }
     }
 

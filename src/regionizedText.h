@@ -15,8 +15,10 @@ class regionizedText {
     	csit_t begin() const;
     	// end() iterator into owned text
     	csit_t end() const;
-    	// returns complete owned text
+    	// returns complete owned text (copies)
     	string str() const;
+    	// returns complete owned text (sharedPtr)
+    	const std::shared_ptr<const string> strPtr() const;
     	// returns region start offset in owned text
     	size_t beginOffset(const regionized::region& r) const;
     	// returns region end offset in owned text

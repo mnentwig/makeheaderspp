@@ -7,7 +7,6 @@
 #include <tuple>
 #include <vector>
 using std::cout, std::endl;  // debug
-using std::pair;
 using std::runtime_error;
 using std::string, std::vector, std::tuple, std::shared_ptr;
 using std::to_string;
@@ -32,9 +31,9 @@ std::string regionized::region::str() const { return string(begin, end); }
 MHPP("public")
 size_t regionized::region::getLevel() const { return level; }
 MHPP("public")
-csit_t regionized::region::getBegin() const{ return begin;}
+csit_t regionized::region::getBegin() const { return begin; }
 MHPP("public")
-csit_t regionized::region::getEnd() const{ return end;}
+csit_t regionized::region::getEnd() const { return end; }
 MHPP("public")
 regionized::rType_e regionized::region::getRType() const { return rType; }
 MHPP("public")
